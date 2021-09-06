@@ -15,3 +15,4 @@ serde_json = "1.0"
 clap = "=3.0.0-beta.2"
 futures-util = "0.3.17"                    # Common utilities and extension traits for the futures-rs library. 
 tabwriter = "1.2.1"            # Elastic tabstops.
+anyhow = "1.0.43"                # Flexible concrete Error type built on std::error::Error
