@@ -22,32 +22,32 @@ pub(crate) fn credentials() -> Credentials {
 async fn main() {
     let matches = clap_app!(ledgersync =>
         (setting: clap::AppSettings::SubcommandRequired)
-        (version: "1.0")
+        (version: "0.1.0")
         (author: "Allan Calix <allan@acx.dev>")
-        (about: "TODO: Write a nice description.")
+        (about: "The ledgersync utility pulls data from an upstream source, such \
+         as Plaid APIs, and generates Ledger records from the transactions.")
         (@arg CONFIG: -c --config [FILE] "Sets a custom config file")
         (@arg verbose: -v --verbose "Sets the level of verbosity")
         (@arg env: -e --env [String] "Selects the environment to run against.")
         (@subcommand link =>
-            (about: "links a new account for tracking")
-            (version: "1.0")
+            (about: "Links a new account for tracking.")
         )
         (@subcommand accounts =>
-            (about: "TODO")
-            (version: "1.0")
+            (about: "Prints tracked accounts to stdout.")
         )
         (@subcommand transactions =>
             (setting: clap::AppSettings::SubcommandRequired)
             (about: "pulls a set of transactions to the store")
-            (version: "1.0")
             (@subcommand sync =>
-                (about: "links a new account for tracking")
-                (version: "1.0")
-                (@arg begin: --begin [DATE] "Sets a custom config file")
-                (@arg until: --until [DATE] "Sets the level of verbosity")
+                (about: "Pulls transactions from the given range, defaults to \
+                 a weeks worth of transactions going back from today.")
+                (@arg begin: --begin [DATE] "The first day of transactions to \
+                 pull, defaults to a week before today. Start date is inclusive.")
+                (@arg until: --until [DATE] "The last day of transactions to \
+                 pull, defaults to today. End date is inclusive.")
             )
             (@subcommand print =>
-                (about: "links a new account for tracking")
+                (about: "Prints all synced transactions as Ledger records.")
                 (version: "1.0")
             )
         )

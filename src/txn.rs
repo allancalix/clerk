@@ -82,7 +82,7 @@ fn print_ledger() -> Result<()> {
     let mut tw = TabWriter::new(vec![]);
     for txn in app_data.transactions {
         let date = NaiveDate::parse_from_str(&txn.date, "%Y-%m-%d")?;
-        let status = if txn.pending { "!" } else {  "*" };
+        let status = if txn.pending { "!" } else { "*" };
         writeln!(tw, "{} {} {}", date.format("%Y/%m/%d"), status, txn.name)?;
         writeln!(tw, "\t; TXID: {}", txn.transaction_id)?;
         writeln!(tw, "\t{}\t${:.2}", "Expenses:Unknown", txn.amount)?;

@@ -7,6 +7,13 @@ use anyhow::Result;
 
 use crate::CLIENT_NAME;
 
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub(crate) struct Conf {
+    pub(crate) plaid_client_id: String,
+    pub(crate) plaid_secret: String,
+    pub(crate) plaid_env: String,
+}
+
 pub(crate) struct Config {
     handle: std::fs::File,
     state: AppState,
