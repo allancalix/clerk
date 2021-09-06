@@ -3,8 +3,6 @@ name = "ledgersync"
 version = "0.1.0"
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 rplaid = { version = "*", path = "../rplaid", features = ["default"] }
@@ -13,6 +11,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 # rust-lang/rust#78835
 clap = "=3.0.0-beta.2"
-futures-util = "0.3.17"                    # Common utilities and extension traits for the futures-rs library. 
-tabwriter = "1.2.1"            # Elastic tabstops.
-anyhow = "1.0.43"                # Flexible concrete Error type built on std::error::Error
+futures-util = "0.3.17"
+tabwriter = "1.2.1"
+anyhow = "1.0.43"
