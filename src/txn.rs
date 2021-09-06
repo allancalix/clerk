@@ -21,7 +21,7 @@ async fn pull(start: &str, end: &str, env: Environment) -> Result<()> {
     let links: Vec<Link> = state
         .links()
         .into_iter()
-        .filter(|link| &link.env == &env)
+        .filter(|link| link.env == env)
         .collect();
 
     let mut fd = OpenOptions::new()
@@ -72,8 +72,8 @@ async fn pull(start: &str, end: &str, env: Environment) -> Result<()> {
 }
 
 pub(crate) async fn run(matches: &ArgMatches, env: Environment) -> Result<()> {
-    let start = matches.value_of("begin").unwrap_or_else(|| "2021-07-01");
-    let end = matches.value_of("until").unwrap_or_else(|| "2021-09-06");
+    let start = matches.value_of("begin").unwrap_or("2021-07-01");
+    let end = matches.value_of("until").unwrap_or("2021-09-06");
 
     pull(start, end, env).await?;
     Ok(())
