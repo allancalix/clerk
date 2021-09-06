@@ -40,7 +40,7 @@ async fn main() {
             (about: "TODO")
             (version: "1.0")
         )
-        (@subcommand pull =>
+        (@subcommand transactions =>
             (about: "pulls a set of transactions to the store")
             (version: "1.0")
             (@arg begin: --begin [DATE] "Sets a custom config file")

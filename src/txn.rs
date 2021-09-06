@@ -4,6 +4,7 @@ use std::io::prelude::*;
 use std::io::SeekFrom;
 
 use anyhow::Result;
+use chrono::prelude::*;
 use clap::ArgMatches;
 use futures_util::pin_mut;
 use futures_util::StreamExt;
@@ -72,9 +73,18 @@ async fn pull(start: &str, end: &str, env: Environment) -> Result<()> {
 }
 
 pub(crate) async fn run(matches: &ArgMatches, env: Environment) -> Result<()> {
-    let start = matches.value_of("begin").unwrap_or("2021-07-01");
-    let end = matches.value_of("until").unwrap_or("2021-09-06");
+    let start = matches.value_of("begin").map_or_else(
+        || {
+            let last_week = Local::now() - chrono::Duration::weeks(1);
+            last_week.format("%Y-%m-%d").to_string()
+        },
+        |v| v.to_string(),
+    );
+    let end = matches.value_of("until").map_or_else(
+        || Local::now().format("%Y-%m-%d").to_string(),
+        |v| v.to_string(),
+    );
 
-    pull(start, end, env).await?;
+    pull(&start, &end, env).await?;
     Ok(())
 }

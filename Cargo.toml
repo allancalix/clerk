@@ -14,3 +14,4 @@ clap = "=3.0.0-beta.2"
 futures-util = "0.3.17"
 tabwriter = "1.2.1"
 anyhow = "1.0.43"
+chrono = "0.4.19"                   # Date and time library for Rust
