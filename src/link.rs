@@ -29,6 +29,7 @@ pub async fn create_link(
         r#"
                 <!DOCTYPE html>
                 <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+                <body></body>
                 <script>var handler = Plaid.create({{
                     token: "{}",
                     onSuccess: (public_token, metadata) => {{

@@ -9,6 +9,7 @@ use clap::ArgMatches;
 use futures_util::pin_mut;
 use futures_util::StreamExt;
 use rplaid::{Environment, PlaidBuilder, Transaction};
+use tabwriter::TabWriter;
 
 use crate::credentials;
 use crate::model::{Config, Link};
@@ -72,19 +73,61 @@ async fn pull(start: &str, end: &str, env: Environment) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn run(matches: &ArgMatches, env: Environment) -> Result<()> {
-    let start = matches.value_of("begin").map_or_else(
-        || {
-            let last_week = Local::now() - chrono::Duration::weeks(1);
-            last_week.format("%Y-%m-%d").to_string()
-        },
-        |v| v.to_string(),
-    );
-    let end = matches.value_of("until").map_or_else(
-        || Local::now().format("%Y-%m-%d").to_string(),
-        |v| v.to_string(),
-    );
+fn rules(id: &str) -> String {
+    match id {
+        "zejzDgrmNbIPo9Rp4Qnrupk5Rmg36EIAYjod6" => "Assets:Chase Checking".to_string(),
+        "merz5mD9yNIRQzxVM4BAIZnbNO7RPKHrYKX3A" => "Liabilities:Chase Freedom".to_string(),
+        "BJMkD6PA7qFmKjEX89ZEFEpgxgYJv9S9MeV8K" => "Liabilities:AMEX".to_string(),
+        "YgrMKqXebzcPzVLLzJRVFQ4Oy0jopMcej63pn" => "Assets:AMEX Savings".to_string(),
+        _ => panic!(),
+    }
+}
 
-    pull(&start, &end, env).await?;
+fn print_ledger() -> Result<()> {
+    let mut fd = OpenOptions::new()
+        .read(true)
+        .open("transactions.json")?;
+
+    let mut content = String::new();
+    fd.read_to_string(&mut content)?;
+    let txns: Vec<Transaction> = serde_json::from_str(&content)?;
+
+    let mut tw = TabWriter::new(vec![]);
+    for txn in txns {
+        let date = NaiveDate::parse_from_str(&txn.date, "%Y-%m-%d")?;
+        writeln!(tw, "{} {}", date.format("%Y/%m/%d"), txn.name)?;
+        writeln!(tw, "\t; TXID: {}", txn.transaction_id)?;
+        writeln!(tw, "\t{}\t${:.2}", "Expenses:Unknown", txn.amount)?;
+        writeln!(tw, "\t{}\n", rules(&txn.account_id))?;
+    }
+
+    let output = String::from_utf8(tw.into_inner()?)?;
+    println!("{}", output);
+
     Ok(())
+}
+
+pub(crate) async fn run(matches: &ArgMatches, env: Environment) -> Result<()> {
+    match matches.subcommand() {
+        Some(("sync", _link_matches)) => {
+            let start = matches.value_of("begin").map_or_else(
+                || {
+                    let last_week = Local::now() - chrono::Duration::weeks(1);
+                    last_week.format("%Y-%m-%d").to_string()
+                },
+                |v| v.to_string(),
+            );
+            let end = matches.value_of("until").map_or_else(
+                || Local::now().format("%Y-%m-%d").to_string(),
+                |v| v.to_string(),
+            );
+
+            pull(&start, &end, env).await
+        }
+        Some(("print", _link_matches)) => {
+            print_ledger()
+        }
+        None => unreachable!("command is requires"),
+        _ => unreachable!(),
+    }
 }

@@ -6,11 +6,7 @@ mod txn;
 use clap::clap_app;
 use rplaid::Credentials;
 
-const PRODUCTS: [&str; 5] = [
-    "assets",
-    "auth",
-    "balance",
-    "credit_details",
+const PRODUCTS: [&str; 1] = [
     "transactions",
 ];
 
@@ -41,10 +37,19 @@ async fn main() {
             (version: "1.0")
         )
         (@subcommand transactions =>
+            (setting: clap::AppSettings::SubcommandRequired)
             (about: "pulls a set of transactions to the store")
             (version: "1.0")
-            (@arg begin: --begin [DATE] "Sets a custom config file")
-            (@arg until: --until [DATE] "Sets the level of verbosity")
+            (@subcommand sync =>
+                (about: "links a new account for tracking")
+                (version: "1.0")
+                (@arg begin: --begin [DATE] "Sets a custom config file")
+                (@arg until: --until [DATE] "Sets the level of verbosity")
+            )
+            (@subcommand print =>
+                (about: "links a new account for tracking")
+                (version: "1.0")
+            )
         )
     )
     .get_matches();
