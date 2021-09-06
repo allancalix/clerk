@@ -3,8 +3,8 @@ use clap::ArgMatches;
 use rplaid::{CreateLinkTokenRequest, Environment, HttpClient, LinkUser, Plaid};
 use warp::Filter;
 
-use crate::CLIENT_NAME;
 use crate::model::{Config, Link};
+use crate::CLIENT_NAME;
 
 pub async fn create_link(
     client: std::sync::Arc<Plaid<impl HttpClient>>,
@@ -62,7 +62,7 @@ async fn exchange_token(
 }
 
 async fn server(env: rplaid::Environment) {
-    let state = std::sync::Arc::new(std::sync::Mutex::new(Config::from_path("state.json")));
+    let state = std::sync::Arc::new(std::sync::Mutex::new(Config::new()));
     let plaid = std::sync::Arc::new(
         rplaid::PlaidBuilder::new()
             .with_credentials(crate::credentials())

@@ -8,7 +8,7 @@ use tabwriter::TabWriter;
 use crate::model::{Config, Link};
 
 async fn print(env: Environment) -> Result<()> {
-    let state = Config::from_path("state.json");
+    let state = Config::new();
     let plaid = std::sync::Arc::new(
         rplaid::PlaidBuilder::new()
             .with_credentials(crate::credentials())

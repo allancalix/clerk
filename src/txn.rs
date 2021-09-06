@@ -12,10 +12,10 @@ use rplaid::{Environment, PlaidBuilder, Transaction};
 use tabwriter::TabWriter;
 
 use crate::credentials;
-use crate::model::{Config, Link};
+use crate::model::{AppData, Config, Link};
 
 async fn pull(start: &str, end: &str, env: Environment) -> Result<()> {
-    let state = Config::from_path("state.json");
+    let state = Config::new();
     let plaid = PlaidBuilder::new()
         .with_credentials(credentials())
         .with_env(env.clone())
@@ -84,16 +84,10 @@ fn rules(id: &str) -> String {
 }
 
 fn print_ledger() -> Result<()> {
-    let mut fd = OpenOptions::new()
-        .read(true)
-        .open("transactions.json")?;
-
-    let mut content = String::new();
-    fd.read_to_string(&mut content)?;
-    let txns: Vec<Transaction> = serde_json::from_str(&content)?;
+    let app_data = AppData::new()?;
 
     let mut tw = TabWriter::new(vec![]);
-    for txn in txns {
+    for txn in app_data.transactions {
         let date = NaiveDate::parse_from_str(&txn.date, "%Y-%m-%d")?;
         writeln!(tw, "{} {}", date.format("%Y/%m/%d"), txn.name)?;
         writeln!(tw, "\t; TXID: {}", txn.transaction_id)?;
@@ -124,9 +118,7 @@ pub(crate) async fn run(matches: &ArgMatches, env: Environment) -> Result<()> {
 
             pull(&start, &end, env).await
         }
-        Some(("print", _link_matches)) => {
-            print_ledger()
-        }
+        Some(("print", _link_matches)) => print_ledger(),
         None => unreachable!("command is requires"),
         _ => unreachable!(),
     }

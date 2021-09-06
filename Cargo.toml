@@ -15,3 +15,4 @@ futures-util = "0.3.17"
 tabwriter = "1.2.1"
 anyhow = "1.0.43"
 chrono = "0.4.19"                   # Date and time library for Rust
+dirs = "3.0.2"                    # A tiny low-level library that provides platform-specific standard locations of directories fo…

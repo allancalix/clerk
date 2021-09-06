@@ -1,6 +1,11 @@
 use serde::{Deserialize, Serialize};
+use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::io::SeekFrom;
+
+use anyhow::Result;
+
+use crate::CLIENT_NAME;
 
 pub(crate) struct Config {
     handle: std::fs::File,
@@ -8,12 +13,16 @@ pub(crate) struct Config {
 }
 
 impl Config {
-    pub(crate) fn from_path(path: &str) -> Self {
+    pub(crate) fn new() -> Self {
+        let data_path = dirs::data_dir()
+            .unwrap()
+            .join(CLIENT_NAME)
+            .join("state.json");
         let mut fd = std::fs::OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
-            .open(path)
+            .open(data_path)
             .unwrap();
 
         let mut content = String::new();
@@ -51,4 +60,28 @@ pub(crate) struct Link {
     pub(crate) item_id: String,
     pub(crate) state: String,
     pub(crate) env: rplaid::Environment,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub(crate) struct AppData {
+    pub(crate) transactions: Vec<rplaid::Transaction>,
+}
+
+impl AppData {
+    pub(crate) fn new() -> Result<AppData> {
+        let data_path = dirs::data_dir()
+            .unwrap()
+            .join(CLIENT_NAME)
+            .join("transactions.json");
+        let mut fd = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(data_path)?;
+        let mut content = String::new();
+        fd.read_to_string(&mut content)?;
+        let txns: Vec<rplaid::Transaction> = serde_json::from_str(&content).unwrap_or_default();
+
+        Ok(Self { transactions: txns })
+    }
 }

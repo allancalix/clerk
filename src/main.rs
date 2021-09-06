@@ -8,9 +8,7 @@ use rplaid::Credentials;
 
 static CLIENT_NAME: &str = "ledgersync";
 
-const PRODUCTS: [&str; 1] = [
-    "transactions",
-];
+const PRODUCTS: [&str; 1] = ["transactions"];
 
 pub(crate) fn credentials() -> Credentials {
     Credentials {
