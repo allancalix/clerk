@@ -48,6 +48,7 @@ pub async fn create_link(
 
 async fn exchange_token(
     public_token: String,
+    env: rplaid::Environment,
     state: std::sync::Arc<std::sync::Mutex<Config>>,
     client: std::sync::Arc<Plaid<impl HttpClient>>,
 ) -> Result<impl warp::Reply, std::convert::Infallible> {
@@ -56,7 +57,7 @@ async fn exchange_token(
         access_token: res.access_token,
         item_id: res.item_id,
         state: "NEW".into(),
-        env: rplaid::Environment::Sandbox,
+        env,
     });
     Ok(warp::reply::html("OK"))
 }
@@ -66,11 +67,12 @@ async fn server(env: rplaid::Environment) {
     let plaid = std::sync::Arc::new(
         rplaid::PlaidBuilder::new()
             .with_credentials(crate::credentials())
-            .with_env(env)
+            .with_env(env.clone())
             .build(),
     );
     let client = warp::any().map(move || plaid.clone());
     let state_filter = warp::any().map(move || state.clone());
+    let env_filter = warp::any().map(move || env.clone());
 
     let link = warp::path("link")
         .and(warp::get())
@@ -79,6 +81,7 @@ async fn server(env: rplaid::Environment) {
 
     let exchange = warp::path!("exchange" / String)
         .and(warp::get())
+        .and(env_filter)
         .and(state_filter)
         .and(client)
         .and_then(exchange_token);
