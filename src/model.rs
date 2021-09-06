@@ -84,4 +84,22 @@ impl AppData {
 
         Ok(Self { transactions: txns })
     }
+
+    pub(crate) fn set_txns(&mut self, txns: Vec<rplaid::Transaction>) -> Result<()> {
+        let data_path = dirs::data_dir()
+            .unwrap()
+            .join(CLIENT_NAME)
+            .join("transactions.json");
+        let mut fd = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(data_path)?;
+
+        let json = serde_json::to_string_pretty(&txns)?;
+        fd.seek(SeekFrom::Start(0))?;
+        write!(fd, "{}", json)?;
+        fd.flush()?;
+
+        Ok(())
+    }
 }

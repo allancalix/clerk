@@ -1,7 +1,5 @@
 use std::collections::BTreeMap;
-use std::fs::OpenOptions;
 use std::io::prelude::*;
-use std::io::SeekFrom;
 
 use anyhow::Result;
 use chrono::prelude::*;
@@ -26,21 +24,16 @@ async fn pull(start: &str, end: &str, env: Environment) -> Result<()> {
         .filter(|link| link.env == env)
         .collect();
 
-    let mut fd = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open("transactions.json")?;
-    let mut content = String::new();
-    fd.read_to_string(&mut content)?;
-    let known_txns: Vec<Transaction> = serde_json::from_str(&content).unwrap_or_default();
-
-    let mut results = known_txns
-        .into_iter()
-        .fold(BTreeMap::new(), |mut acc, txn| {
-            acc.insert((txn.date.clone(), txn.transaction_id.clone()), txn);
-            acc
-        });
+    let mut app_data = AppData::new()?;
+    let mut results =
+        app_data
+            .transactions
+            .clone()
+            .into_iter()
+            .fold(BTreeMap::new(), |mut acc, txn| {
+                acc.insert((txn.date.clone(), txn.transaction_id.clone()), txn);
+                acc
+            });
     for link in links {
         let txns = plaid.transactions_iter(rplaid::GetTransactionsRequest {
             access_token: link.access_token.as_str(),
@@ -66,9 +59,7 @@ async fn pull(start: &str, end: &str, env: Environment) -> Result<()> {
         .into_iter()
         .map(|(_, v)| v)
         .collect::<Vec<Transaction>>();
-    let json = serde_json::to_string_pretty(&output)?;
-    fd.seek(SeekFrom::Start(0))?;
-    write!(fd, "{}", json)?;
+    app_data.set_txns(output)?;
 
     Ok(())
 }
