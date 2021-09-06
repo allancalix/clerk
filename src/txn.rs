@@ -70,6 +70,8 @@ fn rules(id: &str) -> String {
         "merz5mD9yNIRQzxVM4BAIZnbNO7RPKHrYKX3A" => "Liabilities:Chase Freedom".to_string(),
         "BJMkD6PA7qFmKjEX89ZEFEpgxgYJv9S9MeV8K" => "Liabilities:AMEX".to_string(),
         "YgrMKqXebzcPzVLLzJRVFQ4Oy0jopMcej63pn" => "Assets:AMEX Savings".to_string(),
+        "5MP9EJojZ6s8DjJy6zqruxvxv9vKkXfBOP5zR" => "Paypal".to_string(),
+        "ZjYbvyD9ZLCxEyZgk530tNJNJBJOb0CR3Bp7r" => "Paypal Credit".to_string(),
         _ => panic!(),
     }
 }
@@ -80,7 +82,8 @@ fn print_ledger() -> Result<()> {
     let mut tw = TabWriter::new(vec![]);
     for txn in app_data.transactions {
         let date = NaiveDate::parse_from_str(&txn.date, "%Y-%m-%d")?;
-        writeln!(tw, "{} {}", date.format("%Y/%m/%d"), txn.name)?;
+        let status = if txn.pending { "!" } else {  "*" };
+        writeln!(tw, "{} {} {}", date.format("%Y/%m/%d"), status, txn.name)?;
         writeln!(tw, "\t; TXID: {}", txn.transaction_id)?;
         writeln!(tw, "\t{}\t${:.2}", "Expenses:Unknown", txn.amount)?;
         writeln!(tw, "\t{}\n", rules(&txn.account_id))?;
