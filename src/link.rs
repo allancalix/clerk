@@ -3,6 +3,7 @@ use clap::ArgMatches;
 use rplaid::{CreateLinkTokenRequest, Environment, HttpClient, LinkUser, Plaid};
 use warp::Filter;
 
+use crate::CLIENT_NAME;
 use crate::model::{Config, Link};
 
 pub async fn create_link(
@@ -10,7 +11,7 @@ pub async fn create_link(
 ) -> Result<impl warp::Reply, std::convert::Infallible> {
     let res = client
         .create_link_token(&CreateLinkTokenRequest {
-            client_name: "test_client",
+            client_name: CLIENT_NAME,
             user: LinkUser::new("test-user"),
             language: "en",
             country_codes: &["US"],

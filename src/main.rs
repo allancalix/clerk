@@ -6,6 +6,8 @@ mod txn;
 use clap::clap_app;
 use rplaid::Credentials;
 
+static CLIENT_NAME: &str = "ledgersync";
+
 const PRODUCTS: [&str; 1] = [
     "transactions",
 ];
