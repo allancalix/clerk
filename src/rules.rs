@@ -21,7 +21,6 @@ impl Interpreter {
             .unwrap()
             .join(CLIENT_NAME)
             .join("transform.rules");
-        println!("{:?}", rules_file);
         let mut fd = OpenOptions::new().read(true).open(rules_file)?;
         let mut content = String::new();
         fd.read_to_string(&mut content)?;
@@ -41,7 +40,7 @@ impl Interpreter {
                             };
                         }));
                 }
-                _ => println!("skip"),
+                _ => (),
             }
         }
 
