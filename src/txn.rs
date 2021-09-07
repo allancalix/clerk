@@ -68,7 +68,7 @@ async fn pull(start: &str, end: &str, env: Environment) -> Result<()> {
 
 fn print_ledger() -> Result<()> {
     let app_data = AppData::new()?;
-    let rules = crate::rules::Interpreter::from_rules()?;
+    let rules = crate::rules::Interpreter::from_rules_file()?;
 
     let mut tw = TabWriter::new(vec![]);
     for mut txn in app_data.transactions {
