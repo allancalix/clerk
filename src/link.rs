@@ -48,6 +48,7 @@ pub async fn create_link(
 
 async fn exchange_token(
     public_token: String,
+    shutdown: tokio::sync::mpsc::Sender<()>,
     env: rplaid::Environment,
     state: std::sync::Arc<std::sync::Mutex<Config>>,
     client: std::sync::Arc<Plaid<impl HttpClient>>,
@@ -59,6 +60,7 @@ async fn exchange_token(
         state: "NEW".into(),
         env,
     });
+    shutdown.send(()).await.unwrap();
     Ok(warp::reply::html("OK"))
 }
 
@@ -79,16 +81,34 @@ async fn server(env: rplaid::Environment) {
         .and(client.clone())
         .and_then(create_link);
 
+    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+    let tx_filter = warp::any().map(move || tx.clone());
+
     let exchange = warp::path!("exchange" / String)
         .and(warp::get())
+        .and(tx_filter)
         .and(env_filter)
         .and(state_filter)
         .and(client)
         .and_then(exchange_token);
 
     let router = warp::get().and(link.or(exchange));
+    let (tx_shutdown, rx_shutdown) = tokio::sync::oneshot::channel();
+    let (addr, server) =
+        warp::serve(router).bind_with_graceful_shutdown(([127, 0, 0, 1], 3030), async {
+            rx_shutdown.await.ok();
+        });
 
-    warp::serve(router).run(([127, 0, 0, 1], 3030)).await;
+    println!("Visit http://{}/link to link a new account.", addr);
+    tokio::task::spawn(server);
+    tokio::task::spawn(async move {
+        rx.recv().await.unwrap();
+        println!("Successfully linked account... shutting down link server.");
+        rx.close();
+        let _ = tx_shutdown.send(());
+    })
+    .await
+    .unwrap();
 }
 
 pub(crate) async fn run(_matches: &ArgMatches, env: Environment) -> Result<()> {
