@@ -6,24 +6,26 @@ use chrono::prelude::*;
 use clap::ArgMatches;
 use futures_util::pin_mut;
 use futures_util::StreamExt;
-use rplaid::{Environment, PlaidBuilder, Transaction};
+use rplaid::{Credentials, PlaidBuilder, Transaction};
 use tabwriter::TabWriter;
 
-use crate::credentials;
-use crate::model::{AppData, Config, Link};
+use crate::model::{AppData, Conf, Config, Link};
 
 const UNKNOWN_ACCOUNT: &str = "Expenses:Unknown";
 
-async fn pull(start: &str, end: &str, env: Environment) -> Result<()> {
+async fn pull(start: &str, end: &str, conf: Conf) -> Result<()> {
     let state = Config::new();
     let plaid = PlaidBuilder::new()
-        .with_credentials(credentials())
-        .with_env(env.clone())
+        .with_credentials(Credentials {
+            client_id: conf.plaid.client_id.clone(),
+            secret: conf.plaid.secret.clone(),
+        })
+        .with_env(conf.plaid.env.clone())
         .build();
     let links: Vec<Link> = state
         .links()
         .into_iter()
-        .filter(|link| link.env == env)
+        .filter(|link| link.env == conf.plaid.env)
         .collect();
 
     let mut app_data = AppData::new()?;
@@ -88,7 +90,7 @@ fn print_ledger() -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn run(matches: &ArgMatches, env: Environment) -> Result<()> {
+pub(crate) async fn run(matches: &ArgMatches, conf: Conf) -> Result<()> {
     match matches.subcommand() {
         Some(("sync", link_matches)) => {
             let start = link_matches.value_of("begin").map_or_else(
@@ -103,7 +105,7 @@ pub(crate) async fn run(matches: &ArgMatches, env: Environment) -> Result<()> {
                 |v| v.to_string(),
             );
 
-            pull(&start, &end, env).await
+            pull(&start, &end, conf).await
         }
         Some(("print", _link_matches)) => print_ledger(),
         None => unreachable!("command is requires"),

@@ -3,8 +3,8 @@ use clap::ArgMatches;
 use rplaid::{CreateLinkTokenRequest, Environment, HttpClient, LinkUser, Plaid};
 use warp::Filter;
 
-use crate::model::{Config, Link};
-use crate::CLIENT_NAME;
+use crate::model::{Conf, Config, Link};
+use crate::{CLIENT_NAME, COUNTRY_CODES};
 
 pub async fn create_link(
     client: std::sync::Arc<Plaid<impl HttpClient>>,
@@ -14,7 +14,7 @@ pub async fn create_link(
             client_name: CLIENT_NAME,
             user: LinkUser::new("test-user"),
             language: "en",
-            country_codes: &["US"],
+            country_codes: &COUNTRY_CODES,
             products: &crate::PRODUCTS,
             webhook: None,
             access_token: None,
@@ -49,7 +49,7 @@ pub async fn create_link(
 async fn exchange_token(
     public_token: String,
     shutdown: tokio::sync::mpsc::Sender<()>,
-    env: rplaid::Environment,
+    env: Environment,
     state: std::sync::Arc<std::sync::Mutex<Config>>,
     client: std::sync::Arc<Plaid<impl HttpClient>>,
 ) -> Result<impl warp::Reply, std::convert::Infallible> {
@@ -64,17 +64,20 @@ async fn exchange_token(
     Ok(warp::reply::html("OK"))
 }
 
-async fn server(env: rplaid::Environment) {
+async fn server(conf: Conf) {
     let state = std::sync::Arc::new(std::sync::Mutex::new(Config::new()));
     let plaid = std::sync::Arc::new(
         rplaid::PlaidBuilder::new()
-            .with_credentials(crate::credentials())
-            .with_env(env.clone())
+            .with_credentials(rplaid::Credentials {
+                client_id: conf.plaid.client_id.clone(),
+                secret: conf.plaid.secret.clone(),
+            })
+            .with_env(conf.plaid.env.clone())
             .build(),
     );
     let client = warp::any().map(move || plaid.clone());
     let state_filter = warp::any().map(move || state.clone());
-    let env_filter = warp::any().map(move || env.clone());
+    let env_filter = warp::any().map(move || conf.plaid.env.clone());
 
     let link = warp::path("link")
         .and(warp::get())
@@ -111,8 +114,8 @@ async fn server(env: rplaid::Environment) {
     .unwrap();
 }
 
-pub(crate) async fn run(_matches: &ArgMatches, env: Environment) -> Result<()> {
-    server(env).await;
+pub(crate) async fn run(_matches: &ArgMatches, conf: Conf) -> Result<()> {
+    server(conf).await;
 
     Ok(())
 }

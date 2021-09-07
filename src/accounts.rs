@@ -2,24 +2,26 @@ use std::io::prelude::*;
 
 use anyhow::Result;
 use clap::ArgMatches;
-use rplaid::Environment;
+use rplaid::{Credentials, PlaidBuilder};
 use tabwriter::TabWriter;
 
-use crate::model::{Config, Link};
+use crate::model::{Conf, Config, Link};
+use crate::COUNTRY_CODES;
 
-async fn print(env: Environment) -> Result<()> {
+async fn print(conf: Conf) -> Result<()> {
     let state = Config::new();
-    let plaid = std::sync::Arc::new(
-        rplaid::PlaidBuilder::new()
-            .with_credentials(crate::credentials())
-            .with_env(env.clone())
-            .build(),
-    );
+    let plaid = PlaidBuilder::new()
+        .with_credentials(Credentials {
+            client_id: conf.plaid.client_id.clone(),
+            secret: conf.plaid.secret.clone(),
+        })
+        .with_env(conf.plaid.env.clone())
+        .build();
 
     let links: Vec<Link> = state
         .links()
         .into_iter()
-        .filter(|link| link.env == env)
+        .filter(|link| link.env == conf.plaid.env)
         .collect();
 
     let mut tw = TabWriter::new(vec![]);
@@ -27,9 +29,9 @@ async fn print(env: Environment) -> Result<()> {
     for link in links {
         let out = plaid.item(link.access_token.clone()).await?;
         let ins = plaid
-            .get_institution_by_id(rplaid::InstitutionGetRequest {
-                institution_id: out.institution_id.unwrap(),
-                country_codes: vec!["US".into()],
+            .get_institution_by_id(&rplaid::InstitutionGetRequest {
+                institution_id: out.institution_id.unwrap().as_str(),
+                country_codes: &COUNTRY_CODES,
             })
             .await?;
 
@@ -53,7 +55,7 @@ async fn print(env: Environment) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn run(_matches: &ArgMatches, env: Environment) -> Result<()> {
-    print(env).await?;
+pub(crate) async fn run(_matches: &ArgMatches, conf: Conf) -> Result<()> {
+    print(conf).await?;
     Ok(())
 }

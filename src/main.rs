@@ -9,21 +9,10 @@ extern crate pest;
 extern crate pest_derive;
 
 use clap::clap_app;
-use rplaid::Credentials;
 
 static CLIENT_NAME: &str = "ledgersync";
-
-const PRODUCTS: [&str; 1] = ["transactions"];
-
-const COUNTRY_CODES: [&str; 1] = ["US"];
-
-pub(crate) fn credentials() -> Credentials {
-    Credentials {
-        client_id: std::env::var("PLAID_CLIENT_ID")
-            .expect("Variable PLAID_CLIENT_ID must be defined."),
-        secret: std::env::var("PLAID_SECRET").expect("Variable PLAID_SECRET must be defined."),
-    }
-}
+static PRODUCTS: [&str; 1] = ["transactions"];
+static COUNTRY_CODES: [&str; 1] = ["US"];
 
 #[tokio::main]
 async fn main() {
@@ -61,28 +50,17 @@ async fn main() {
     )
     .get_matches();
 
-    let env = matches.value_of("env").map_or_else(
-        || rplaid::Environment::Sandbox,
-        |e| match e {
-            "Production" => rplaid::Environment::Production,
-            "Development" => rplaid::Environment::Development,
-            "Sandbox" => rplaid::Environment::Sandbox,
-            _ => {
-                println!("Environment {} not recognized.", e);
-                std::process::exit(1);
-            }
-        },
-    );
+    let conf = crate::model::Conf::read(matches.value_of("CONFIG")).unwrap();
 
     match matches.subcommand() {
         Some(("link", link_matches)) => {
-            link::run(link_matches, env).await.unwrap();
+            link::run(link_matches, conf).await.unwrap();
         }
         Some(("transactions", link_matches)) => {
-            txn::run(link_matches, env).await.unwrap();
+            txn::run(link_matches, conf).await.unwrap();
         }
         Some(("accounts", link_matches)) => {
-            accounts::run(link_matches, env).await.unwrap();
+            accounts::run(link_matches, conf).await.unwrap();
         }
         None => unreachable!("subcommand is required"),
         _ => unreachable!(),

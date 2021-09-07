@@ -9,9 +9,33 @@ use crate::CLIENT_NAME;
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub(crate) struct Conf {
-    pub(crate) plaid_client_id: String,
-    pub(crate) plaid_secret: String,
-    pub(crate) plaid_env: String,
+    pub(crate) rules: Vec<String>,
+    pub(crate) plaid: PlaidOpts,
+}
+
+impl Conf {
+    pub(crate) fn read(path: Option<&str>) -> Result<Self> {
+        let p = match path {
+            Some(p) => p.into(),
+            None => dirs::config_dir()
+                .unwrap()
+                .join(CLIENT_NAME)
+                .join("config.toml"),
+        };
+
+        let mut fd = OpenOptions::new().read(true).open(p)?;
+        let mut content = String::new();
+        fd.read_to_string(&mut content).unwrap();
+
+        Ok(toml::from_str(&content)?)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub(crate) struct PlaidOpts {
+    pub(crate) client_id: String,
+    pub(crate) secret: String,
+    pub(crate) env: rplaid::Environment,
 }
 
 pub(crate) struct Config {
