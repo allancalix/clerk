@@ -4,8 +4,9 @@ on:
     branches:
       - main
 jobs:
-  runs-on: ${{ matrix.os }}
   build_relase:
+    name: 'build_release'
+    runs-on: ${{ matrix.os }}
     strategy:
         matrix:
           build: [linux, macos]
