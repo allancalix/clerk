@@ -1705,6 +1705,8 @@ dependencies = [
 [[package]]
 name = "rplaid"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00f041e93ff155c4be5ec54325e786e696e7e24e5460b37b5c28db534e4f9653"
 dependencies = [
  "async-stream",
  "futures-core",
