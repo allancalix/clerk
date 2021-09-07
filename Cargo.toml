@@ -14,8 +14,8 @@ clap = "=3.0.0-beta.2"
 futures-util = "0.3.17"
 tabwriter = "1.2.1"
 anyhow = "1.0.43"
-chrono = "0.4.19"                   # Date and time library for Rust
-dirs = "3.0.2"                    # A tiny low-level library that provides platform-specific standard locations of directories fo…
-pest = "2.1.3"                   # The Elegant Parser
-pest_derive = "2.1.0"                # pest's derive macro
-toml = "0.5.8"                # A native Rust encoder and decoder of TOML-formatted files and streams. Provides implementations o…
+chrono = "0.4.19"
+dirs = "3.0.2"
+pest = "2.1.3"
+pest_derive = "2.1.0"
+toml = "0.5.8"
