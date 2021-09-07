@@ -1,7 +1,12 @@
 mod accounts;
 mod link;
 mod model;
+mod rules;
 mod txn;
+
+extern crate pest;
+#[macro_use]
+extern crate pest_derive;
 
 use clap::clap_app;
 use rplaid::Credentials;

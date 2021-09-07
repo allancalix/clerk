@@ -12,6 +12,8 @@ use tabwriter::TabWriter;
 use crate::credentials;
 use crate::model::{AppData, Config, Link};
 
+const UNKNOWN_ACCOUNT: &str = "Expenses:Unknown";
+
 async fn pull(start: &str, end: &str, env: Environment) -> Result<()> {
     let state = Config::new();
     let plaid = PlaidBuilder::new()
@@ -64,31 +66,20 @@ async fn pull(start: &str, end: &str, env: Environment) -> Result<()> {
     Ok(())
 }
 
-fn rules(id: &str) -> String {
-    match id {
-        "zejzDgrmNbIPo9Rp4Qnrupk5Rmg36EIAYjod6" => "Assets:Chase Checking".to_string(),
-        "merz5mD9yNIRQzxVM4BAIZnbNO7RPKHrYKX3A" => "Liabilities:Chase Freedom".to_string(),
-        "BJMkD6PA7qFmKjEX89ZEFEpgxgYJv9S9MeV8K" => "Liabilities:AMEX".to_string(),
-        "YgrMKqXebzcPzVLLzJRVFQ4Oy0jopMcej63pn" => "Assets:AMEX Savings".to_string(),
-        "5MP9EJojZ6s8DjJy6zqruxvxv9vKkXfBOP5zR" => "Assets:Paypal".to_string(),
-        "ZjYbvyD9ZLCxEyZgk530tNJNJBJOb0CR3Bp7r" => "Liabilities:Paypal Credit".to_string(),
-        "Bpm6EnnPOKFP8Jp1KLMgf49A917gYkF9MykKQ" => "Assets:Wealthfront Cash".to_string(),
-        "qDnaY338gJCP4Mgb8dXafvE6EZJOjxFJOwvKn" => "Assets:Wealthfront Investment".to_string(),
-        _ => panic!(),
-    }
-}
-
 fn print_ledger() -> Result<()> {
     let app_data = AppData::new()?;
+    let rules = crate::rules::Interpreter::from_rules()?;
 
     let mut tw = TabWriter::new(vec![]);
-    for txn in app_data.transactions {
+    for mut txn in app_data.transactions {
+        rules.apply(&mut txn);
+
         let date = NaiveDate::parse_from_str(&txn.date, "%Y-%m-%d")?;
         let status = if txn.pending { "!" } else { "*" };
         writeln!(tw, "{} {} {}", date.format("%Y/%m/%d"), status, txn.name)?;
         writeln!(tw, "\t; TXID: {}", txn.transaction_id)?;
-        writeln!(tw, "\t{}\t${:.2}", "Expenses:Unknown", txn.amount)?;
-        writeln!(tw, "\t{}\n", rules(&txn.account_id))?;
+        writeln!(tw, "\t{}\t${:.2}", UNKNOWN_ACCOUNT, txn.amount)?;
+        writeln!(tw, "\t{}\n", &txn.account_id)?;
     }
 
     let output = String::from_utf8(tw.into_inner()?)?;

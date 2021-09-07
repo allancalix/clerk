@@ -1,0 +1,9 @@
+account = { (ASCII_ALPHANUMERIC | ":" | " ")* }
+account_id = { (ASCII_ALPHANUMERIC)+ }
+account_alias = {
+	"account" ~ SPACE_SEPARATOR
+    ~ account_id ~ SPACE_SEPARATOR
+    ~ account ~ NEWLINE?
+}
+
+rules = { SOI ~ (NEWLINE | account_alias)* ~ EOI }
