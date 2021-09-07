@@ -38,7 +38,7 @@ jobs:
 
       - name: Strip release binary (linux and macos)
         if: matrix.build == 'linux' || matrix.build == 'macos'
-        run: strip "target/${{ matrix.target }}/release/ledgersync"
+        run: strip "target/release/ledgersync"
 
       - name: Archive binary
         uses: actions/upload-artifact@v1
