@@ -10,6 +10,8 @@ static CLIENT_NAME: &str = "ledgersync";
 
 const PRODUCTS: [&str; 1] = ["transactions"];
 
+const COUNTRY_CODES: [&str; 1] = ["US"];
+
 pub(crate) fn credentials() -> Credentials {
     Credentials {
         client_id: std::env::var("PLAID_CLIENT_ID")

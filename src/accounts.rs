@@ -23,7 +23,7 @@ async fn print(env: Environment) -> Result<()> {
         .collect();
 
     let mut tw = TabWriter::new(vec![]);
-    writeln!(tw, "Institution\tAccount\tType\tStatus")?;
+    writeln!(tw, "Institution\tAccount\tAccount ID\tType\tStatus")?;
     for link in links {
         let out = plaid.item(link.access_token.clone()).await?;
         let ins = plaid
@@ -37,8 +37,12 @@ async fn print(env: Environment) -> Result<()> {
         for account in accounts {
             writeln!(
                 tw,
-                "{}\t{}\t{}\t{:?}",
-                ins.name, account.name, account.r#type, out.consent_expiration_time
+                "{}\t{}\t{}\t{}\t{:?}",
+                ins.name,
+                account.name,
+                account.account_id,
+                account.r#type,
+                out.consent_expiration_time
             )?;
         }
     }

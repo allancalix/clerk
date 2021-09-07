@@ -70,8 +70,10 @@ fn rules(id: &str) -> String {
         "merz5mD9yNIRQzxVM4BAIZnbNO7RPKHrYKX3A" => "Liabilities:Chase Freedom".to_string(),
         "BJMkD6PA7qFmKjEX89ZEFEpgxgYJv9S9MeV8K" => "Liabilities:AMEX".to_string(),
         "YgrMKqXebzcPzVLLzJRVFQ4Oy0jopMcej63pn" => "Assets:AMEX Savings".to_string(),
-        "5MP9EJojZ6s8DjJy6zqruxvxv9vKkXfBOP5zR" => "Paypal".to_string(),
-        "ZjYbvyD9ZLCxEyZgk530tNJNJBJOb0CR3Bp7r" => "Paypal Credit".to_string(),
+        "5MP9EJojZ6s8DjJy6zqruxvxv9vKkXfBOP5zR" => "Assets:Paypal".to_string(),
+        "ZjYbvyD9ZLCxEyZgk530tNJNJBJOb0CR3Bp7r" => "Liabilities:Paypal Credit".to_string(),
+        "Bpm6EnnPOKFP8Jp1KLMgf49A917gYkF9MykKQ" => "Assets:Wealthfront Cash".to_string(),
+        "qDnaY338gJCP4Mgb8dXafvE6EZJOjxFJOwvKn" => "Assets:Wealthfront Investment".to_string(),
         _ => panic!(),
     }
 }
