@@ -99,15 +99,15 @@ fn print_ledger() -> Result<()> {
 
 pub(crate) async fn run(matches: &ArgMatches, env: Environment) -> Result<()> {
     match matches.subcommand() {
-        Some(("sync", _link_matches)) => {
-            let start = matches.value_of("begin").map_or_else(
+        Some(("sync", link_matches)) => {
+            let start = link_matches.value_of("begin").map_or_else(
                 || {
                     let last_week = Local::now() - chrono::Duration::weeks(1);
                     last_week.format("%Y-%m-%d").to_string()
                 },
                 |v| v.to_string(),
             );
-            let end = matches.value_of("until").map_or_else(
+            let end = link_matches.value_of("until").map_or_else(
                 || Local::now().format("%Y-%m-%d").to_string(),
                 |v| v.to_string(),
             );
