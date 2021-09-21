@@ -1,0 +1,7 @@
+# An example ledgersync configuration file.
+rules = ["transform.keto"] # Relative paths are relative to the configuration file. Absolute paths also work.
+
+[plaid]
+client_id = "<INSERT PLAID_CLIENT_ID>"
+secret = "<INSERT PLAID_CLIENT_SECRET>"
+env = "Sandbox" # Sandbox | Development | Production
