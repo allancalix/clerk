@@ -30,6 +30,8 @@ async fn run() -> Result<()> {
         (@arg env: -e --env [String] "Selects the environment to run against.")
         (@subcommand link =>
             (about: "Links a new account for tracking.")
+            (@arg update: -u --update [ACCESS_TOKEN] "Update a link for an existing \
+             account link, must pass the access token for the expired link.")
         )
         (@subcommand accounts =>
             (about: "Prints tracked accounts to stdout.")

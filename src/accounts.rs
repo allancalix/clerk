@@ -59,6 +59,18 @@ async fn print(conf: ConfigFile) -> Result<()> {
             })
             .await?;
 
+        if let Some(e) = out.error {
+            println!(
+                "Item {} is failing with status {:?}. Relink account with
+                ledgersync link --update {}.\n",
+                link.item_id,
+                e.error_code.unwrap(),
+                link.access_token
+            );
+
+            continue;
+        }
+
         let accounts = plaid.accounts(link.access_token).await?;
         for account in accounts {
             writeln!(

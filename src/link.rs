@@ -11,21 +11,38 @@ use warp::Filter;
 use crate::model::{AppData, ConfigFile, Link, LinkStatus};
 use crate::{CLIENT_NAME, COUNTRY_CODES};
 
-pub async fn create_link(
+type AccessToken = String;
+
+#[derive(Debug, Clone)]
+enum Mode {
+    Create,
+    Update(AccessToken),
+}
+
+async fn create_link(
     client: Arc<Plaid<impl HttpClient>>,
+    mode: Mode,
 ) -> Result<impl warp::Reply, std::convert::Infallible> {
-    let res = client
-        .create_link_token(&CreateLinkTokenRequest {
+    let req = match &mode {
+        Mode::Create => CreateLinkTokenRequest {
             client_name: CLIENT_NAME,
             user: LinkUser::new("test-user"),
             language: "en",
             country_codes: &COUNTRY_CODES,
             products: &crate::PRODUCTS,
             ..CreateLinkTokenRequest::default()
-        })
-        .await;
+        },
+        Mode::Update(token) => CreateLinkTokenRequest {
+            client_name: CLIENT_NAME,
+            user: LinkUser::new("test-user"),
+            language: "en",
+            country_codes: &COUNTRY_CODES,
+            access_token: Some(&token),
+            ..CreateLinkTokenRequest::default()
+        },
+    };
 
-    match res {
+    match client.create_link_token(&req).await {
         Ok(r) => Ok(warp::reply::html(format!(
             r#"
                     <!DOCTYPE html>
@@ -73,7 +90,7 @@ async fn exchange_token(
     Ok(warp::reply::html("OK"))
 }
 
-async fn server(conf: ConfigFile) -> Result<()> {
+async fn server(conf: ConfigFile, mode: Mode) -> Result<()> {
     let state = Arc::new(Mutex::new(AppData::new()?));
     let plaid = Arc::new(
         Builder::new()
@@ -87,10 +104,12 @@ async fn server(conf: ConfigFile) -> Result<()> {
     let client = warp::any().map(move || plaid.clone());
     let state_filter = warp::any().map(move || state.clone());
     let env_filter = warp::any().map(move || conf.config().plaid.env.clone());
+    let mode_filter = warp::any().map(move || mode.clone());
 
     let link = warp::path("link")
         .and(warp::get())
         .and(client.clone())
+        .and(mode_filter)
         .and_then(create_link);
 
     let (tx, mut rx) = mpsc::channel(1);
@@ -124,6 +143,9 @@ async fn server(conf: ConfigFile) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn run(_matches: &ArgMatches, conf: ConfigFile) -> Result<()> {
-    server(conf).await
+pub(crate) async fn run(matches: &ArgMatches, conf: ConfigFile) -> Result<()> {
+    match matches.value_of("update") {
+        Some(token) => server(conf, Mode::Update(token.into())).await,
+        None => server(conf, Mode::Create).await,
+    }
 }
