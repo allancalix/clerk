@@ -3,6 +3,7 @@ mod link;
 mod model;
 mod rules;
 mod txn;
+mod init;
 
 #[macro_use]
 extern crate ketos;
@@ -28,6 +29,9 @@ async fn run() -> Result<()> {
         (@arg CONFIG: -c --config [FILE] "Sets a custom config file")
         (@arg verbose: -v --verbose "Sets the level of verbosity")
         (@arg env: -e --env [String] "Selects the environment to run against.")
+        (@subcommand init =>
+            (about: "Initialize CLI for use.")
+        )
         (@subcommand link =>
             (about: "Links a new account for tracking.")
             (@arg update: -u --update [ACCESS_TOKEN] "Update a link for an existing \
@@ -62,16 +66,20 @@ async fn run() -> Result<()> {
     )
     .get_matches();
 
-    let conf = ConfigFile::read(matches.value_of("CONFIG"))?;
-
     match matches.subcommand() {
+        Some(("init", _)) => {
+            init::run(matches.value_of("CONFIG")).await?;
+        }
         Some(("link", link_matches)) => {
+            let conf = ConfigFile::read(matches.value_of("CONFIG"))?;
             link::run(link_matches, conf).await?;
         }
         Some(("transactions", link_matches)) => {
+            let conf = ConfigFile::read(matches.value_of("CONFIG"))?;
             txn::run(link_matches, conf).await?;
         }
         Some(("accounts", link_matches)) => {
+            let conf = ConfigFile::read(matches.value_of("CONFIG"))?;
             accounts::run(link_matches, conf).await?;
         }
         None => unreachable!("subcommand is required"),
@@ -88,3 +96,4 @@ async fn main() {
         std::process::exit(1);
     }
 }
+

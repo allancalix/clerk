@@ -33,7 +33,7 @@ pub(crate) struct PlaidOpts {
 }
 
 impl ConfigFile {
-    fn default_config_path() -> Result<std::path::PathBuf> {
+    pub(crate) fn default_config_path() -> Result<std::path::PathBuf> {
         Ok(dirs::config_dir()
                 .unwrap_or(std::env::current_dir()?)
                 .join(CLIENT_NAME)
@@ -66,6 +66,31 @@ impl ConfigFile {
             path: p,
             conf: config,
         })
+    }
+
+    pub(crate) fn read_from_file(mut fd: std::fs::File, path: PathBuf) -> Result<Self> {
+        let mut content = String::new();
+        fd.read_to_string(&mut content)?;
+
+        let config: Conf = toml::from_str(&content)?;
+        Ok(ConfigFile {
+            path,
+            conf: config,
+        })
+    }
+
+    pub(crate) fn update(&self, conf: &Conf) -> Result<()> {
+        let mut fd = OpenOptions::new()
+                .write(true)
+                .open(&self.path)?;
+
+        let contents = toml::to_string_pretty(conf)?;
+
+        // Overwrite existing file contents.
+        fd.set_len(0)?;
+        write!(fd, "{}", contents)?;
+
+        Ok(())
     }
 
     pub(crate) fn config(&self) -> &Conf {
