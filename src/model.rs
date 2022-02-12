@@ -12,7 +12,6 @@ use crate::CLIENT_NAME;
 
 const CONFIG_NAME: &str = "config.toml";
 const DATA_FILE_NAME: &str = "state.json";
-const DEFAULT_TRANSFORM_FILE_NAME: &str = "transform.keto";
 
 #[derive(Debug, Default, Clone)]
 pub(crate) struct ConfigFile {
@@ -34,27 +33,35 @@ pub(crate) struct PlaidOpts {
 }
 
 impl ConfigFile {
+    fn default_config_path() -> Result<std::path::PathBuf> {
+        Ok(dirs::config_dir()
+                .unwrap_or(std::env::current_dir()?)
+                .join(CLIENT_NAME)
+                .join(CONFIG_NAME))
+    }
+
     pub(crate) fn read(path: Option<&str>) -> Result<Self> {
         let p = match path {
             Some(p) => p.into(),
-            None => dirs::config_dir()
-                .unwrap_or(std::env::current_dir()?)
-                .join(CLIENT_NAME)
-                .join(CONFIG_NAME),
+            None => ConfigFile::default_config_path()?,
         };
 
         let mut fd = OpenOptions::new().read(true).open(&p).map_err(|e| {
-            let context = format!("Failed to read configuration {}: {}.", p.display(), e);
-            anyhow::Error::new(e).context(context)
+            match e.kind() {
+                std::io::ErrorKind::NotFound => {
+                    let ctx = format!("no configuration file found at: {:?}", p);
+                    anyhow::Error::new(e).context(ctx)
+                },
+                _ => {
+                    let ctx = format!("Failed to read configuration {}: {}.", p.display(), e);
+                    anyhow::Error::new(e).context(ctx)
+                },
+            }
         })?;
         let mut content = String::new();
         fd.read_to_string(&mut content)?;
 
-        let mut config: Conf = toml::from_str(&content)?;
-        if config.rules.is_empty() {
-            config.rules.push(DEFAULT_TRANSFORM_FILE_NAME.into());
-        }
-
+        let config: Conf = toml::from_str(&content)?;
         Ok(ConfigFile {
             path: p,
             conf: config,
@@ -89,11 +96,22 @@ pub(crate) struct AppData {
 }
 
 impl AppData {
-    pub(crate) fn new() -> Result<AppData> {
-        let data_path = dirs::data_dir()
+    fn default_data_path() -> Result<std::path::PathBuf> {
+        Ok(dirs::data_dir()
             .unwrap_or(std::env::current_dir()?)
             .join(CLIENT_NAME)
-            .join(DATA_FILE_NAME);
+            .join(DATA_FILE_NAME))
+    }
+    pub(crate) fn new() -> Result<AppData> {
+        let data_path = AppData::default_data_path()?;
+
+        // Create default data directory if none exists.
+        {
+            let mut dir = data_path.clone();
+            dir.pop();
+            std::fs::create_dir_all(dir)?;
+        }
+
         let mut fd = OpenOptions::new()
             .read(true)
             .write(true)
