@@ -4,6 +4,7 @@ mod model;
 mod rules;
 mod txn;
 mod init;
+mod plaid;
 
 #[macro_use]
 extern crate ketos;
@@ -36,6 +37,10 @@ async fn run() -> Result<()> {
             (about: "Links a new account for tracking.")
             (@arg update: -u --update [ACCESS_TOKEN] "Update a link for an existing \
              account link, must pass the access token for the expired link.")
+            (@subcommand status =>
+                (about: "Displays all links and their current status known to
+                 ledgersync.")
+            )
         )
         (@subcommand accounts =>
             (about: "Prints tracked accounts to stdout.")

@@ -9,7 +9,8 @@ use rplaid::client::{Builder, Credentials};
 use rplaid::model::*;
 use tabwriter::TabWriter;
 
-use crate::model::{AppData, ConfigFile, Link};
+use crate::plaid::Link;
+use crate::model::{AppData, ConfigFile};
 use crate::COUNTRY_CODES;
 
 #[derive(Eq, PartialEq)]
@@ -40,7 +41,6 @@ async fn print(conf: ConfigFile) -> Result<()> {
         })
         .with_env(conf.config().plaid.env.clone())
         .build();
-
     let links: Vec<Link> = state
         .links()
         .into_iter()

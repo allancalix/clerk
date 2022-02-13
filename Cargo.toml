@@ -5,7 +5,7 @@ edition = "2018"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-rplaid = { version = "0.2.1", features = ["default"] }
+rplaid = { version = "0.2.1", features = ["default"], path = "../rplaid" }
 warp = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

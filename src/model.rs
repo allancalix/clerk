@@ -8,6 +8,7 @@ use anyhow::Result;
 use rplaid::client::Environment;
 use rplaid::model::*;
 
+use crate::plaid::Link;
 use crate::CLIENT_NAME;
 
 const CONFIG_NAME: &str = "config.toml";
@@ -163,8 +164,23 @@ impl AppData {
         self.store.links.clone()
     }
 
+    pub(crate) fn links_by_env(&self, env: &Environment) -> Vec<Link> {
+        self.store.links
+            .clone()
+            .into_iter()
+            .filter(|link| link.env == *env)
+            .collect()
+    }
+
     pub(crate) fn add_link(&mut self, link: Link) -> Result<()> {
-        self.store.links.push(link);
+        match self.store.links.iter().position(|link| link.item_id == link.item_id) {
+            Some(pos) => {
+                self.store.links[pos] = link;
+            },
+            None => {
+                self.store.links.push(link);
+            },
+        };
         self.handle.seek(SeekFrom::Start(0))?;
         write!(
             self.handle,
@@ -185,18 +201,4 @@ impl AppData {
 struct AppStorage {
     links: Vec<Link>,
     transactions: Vec<Transaction>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub(crate) struct Link {
-    pub(crate) access_token: String,
-    pub(crate) item_id: String,
-    pub(crate) state: LinkStatus,
-    pub(crate) env: Environment,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub(crate) enum LinkStatus {
-    New,
 }

@@ -8,7 +8,8 @@ use rplaid::HttpClient;
 use tokio::sync::{mpsc, oneshot};
 use warp::Filter;
 
-use crate::model::{AppData, ConfigFile, Link, LinkStatus};
+use crate::plaid::{Link, LinkStatus};
+use crate::model::{AppData, ConfigFile};
 use crate::{CLIENT_NAME, COUNTRY_CODES};
 
 type AccessToken = String;
@@ -77,9 +78,10 @@ async fn exchange_token(
         .lock()
         .unwrap()
         .add_link(Link {
+            alias: "test".to_string(),
             access_token: res.access_token,
             item_id: res.item_id,
-            state: LinkStatus::New,
+            state: LinkStatus::Active,
             env,
         })
         .map_err(|e| {
@@ -143,9 +145,29 @@ async fn server(conf: ConfigFile, mode: Mode) -> Result<()> {
     Ok(())
 }
 
+async fn status(conf: ConfigFile) -> Result<()> {
+    let app_data = AppData::new()?;
+    let plaid =
+        Builder::new()
+            .with_credentials(Credentials {
+                client_id: conf.config().plaid.client_id.clone(),
+                secret: conf.config().plaid.secret.clone(),
+            })
+            .with_env(conf.config().plaid.env.clone())
+            .build();
+
+    let link_controller = crate::plaid::LinkController::new(
+        plaid, app_data.links_by_env(&conf.config().plaid.env)).await?;
+    println!("{}", link_controller.display_connections_table()?);
+    Ok(())
+}
+
 pub(crate) async fn run(matches: &ArgMatches, conf: ConfigFile) -> Result<()> {
-    match matches.value_of("update") {
-        Some(token) => server(conf, Mode::Update(token.into())).await,
-        None => server(conf, Mode::Create).await,
+    match matches.subcommand() {
+        Some(("status", _status_matches)) => status(conf).await,
+        _ => match matches.value_of("update") {
+            Some(token) => server(conf, Mode::Update(token.into())).await,
+            None => server(conf, Mode::Create).await,
+        }
     }
 }

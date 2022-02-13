@@ -10,7 +10,8 @@ use rplaid::client::{Builder, Credentials};
 use rplaid::model::*;
 use tabwriter::TabWriter;
 
-use crate::model::{AppData, ConfigFile, Link};
+use crate::plaid::Link;
+use crate::model::{AppData, ConfigFile};
 use crate::rules::Transformer;
 
 async fn pull(start: &str, end: &str, conf: ConfigFile) -> Result<()> {
