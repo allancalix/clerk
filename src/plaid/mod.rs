@@ -60,6 +60,19 @@ impl<T: HttpClient> LinkController<T> {
         })
     }
 
+    pub async fn remove_item(&mut self, id: &str) -> Result<()> {
+        match self.get_access_token_by_item_id(id) {
+            Some(token) => Ok(self.client.item_del(token).await?),
+            None => Err(anyhow!("no access token found for item {}", id)),
+        }?;
+
+        if let Some(pos) = self.connections.iter().position(|connection| connection.item_id == id) {
+            self.connections.remove(pos);
+        }
+
+        Ok(())
+    }
+
     pub fn get_access_token_by_item_id(&self, id: &str) -> Option<String> {
         self.connections
             .iter()
