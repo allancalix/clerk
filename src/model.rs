@@ -164,6 +164,16 @@ impl AppData {
         self.store.links.clone()
     }
 
+    pub(crate) fn update_links(&mut self, links: Vec<Link>) -> Result<()> {
+        self.store.links = links;
+
+        // Overwrite existing file contents.
+        self.handle.set_len(0)?;
+        write!(self.handle, "{}", serde_json::to_string_pretty(&self.store)?)?;
+        self.handle.flush()?;
+        Ok(())
+    }
+
     pub(crate) fn links_by_env(&self, env: &Environment) -> Vec<Link> {
         self.store.links
             .clone()

@@ -41,6 +41,10 @@ async fn run() -> Result<()> {
                 (about: "Displays all links and their current status known to
                  ledgersync.")
             )
+            (@subcommand delete =>
+                (about: "Deletes a Plaid account link.")
+                (@arg item_id: <ITEM_ID> "The item ID of the link to delete.")
+            )
         )
         (@subcommand accounts =>
             (about: "Prints tracked accounts to stdout.")

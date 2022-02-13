@@ -62,6 +62,19 @@ impl<T: HttpClient> LinkController<T> {
         })
     }
 
+    pub fn links(&self) -> Vec<Link> {
+        self.connections
+            .iter()
+            .map(|conn| Link {
+                alias: conn.alias.clone(),
+                item_id: conn.item_id.clone(),
+                access_token: conn.access_token.clone(),
+                env: conn.env.clone(),
+                state: conn.state.clone(),
+            })
+            .collect()
+    }
+
     pub async fn remove_item(&mut self, id: &str) -> Result<()> {
         match self.get_access_token_by_item_id(id) {
             Some(token) => Ok(self.client.item_del(token).await?),

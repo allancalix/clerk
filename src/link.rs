@@ -145,6 +145,24 @@ async fn server(conf: ConfigFile, mode: Mode) -> Result<()> {
     Ok(())
 }
 
+async fn remove(conf: ConfigFile, item_id: &str) -> Result<()> {
+    let mut app_data = AppData::new()?;
+    let plaid =
+        Builder::new()
+            .with_credentials(Credentials {
+                client_id: conf.config().plaid.client_id.clone(),
+                secret: conf.config().plaid.secret.clone(),
+            })
+            .with_env(conf.config().plaid.env.clone())
+            .build();
+    let mut link_controller = crate::plaid::LinkController::new(
+        plaid, app_data.links_by_env(&conf.config().plaid.env)).await?;
+    link_controller.remove_item(item_id).await?;
+    app_data.update_links(link_controller.links())?;
+
+    Ok(())
+}
+
 async fn status(conf: ConfigFile) -> Result<()> {
     let app_data = AppData::new()?;
     let plaid =
@@ -165,6 +183,13 @@ async fn status(conf: ConfigFile) -> Result<()> {
 pub(crate) async fn run(matches: &ArgMatches, conf: ConfigFile) -> Result<()> {
     match matches.subcommand() {
         Some(("status", _status_matches)) => status(conf).await,
+        Some(("delete", remove_matches)) => {
+            // SAFETY: This should be fine so long as this is a positional
+            // argument as clap will prevent this code from executing without a
+            // value.
+            let item_id = remove_matches.value_of("item_id").unwrap();
+            remove(conf, item_id).await
+        },
         _ => match matches.value_of("update") {
             Some(token) => server(conf, Mode::Update(token.into())).await,
             None => server(conf, Mode::Create).await,
