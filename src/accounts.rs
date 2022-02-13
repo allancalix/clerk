@@ -11,7 +11,6 @@ use tabwriter::TabWriter;
 
 use crate::plaid::Link;
 use crate::model::{AppData, ConfigFile};
-use crate::COUNTRY_CODES;
 
 #[derive(Eq, PartialEq)]
 struct AccountTypeWrapper(AccountType);
@@ -41,51 +40,10 @@ async fn print(conf: ConfigFile) -> Result<()> {
         })
         .with_env(conf.config().plaid.env.clone())
         .build();
-    let links: Vec<Link> = state
-        .links()
-        .into_iter()
-        .filter(|link| link.env == conf.config().plaid.env)
-        .collect();
+    let link_controller = crate::plaid::LinkController::new(
+        plaid, state.links_by_env(&conf.config().plaid.env)).await?;
 
-    let mut tw = TabWriter::new(vec![]);
-    writeln!(tw, "Institution\tAccount\tAccount ID\tType\tStatus")?;
-    for link in links {
-        let out = plaid.item(link.access_token.clone()).await?;
-        let ins = plaid
-            .get_institution_by_id(&InstitutionGetRequest {
-                institution_id: out.institution_id.unwrap().as_str(),
-                country_codes: &COUNTRY_CODES,
-                options: None,
-            })
-            .await?;
-
-        if let Some(e) = out.error {
-            println!(
-                "Item {} is failing with status {:?}. Relink account with
-                ledgersync link --update {}.\n",
-                link.item_id,
-                e.error_code.unwrap(),
-                link.access_token
-            );
-
-            continue;
-        }
-
-        let accounts = plaid.accounts(link.access_token).await?;
-        for account in accounts {
-            writeln!(
-                tw,
-                "{}\t{}\t{}\t{:?}\t{:?}",
-                ins.name,
-                account.name,
-                account.account_id,
-                account.r#type,
-                out.consent_expiration_time
-            )?;
-        }
-    }
-
-    let table = String::from_utf8(tw.into_inner()?)?;
+    let table = link_controller.display_accounts_table()?;
     println!("{}", table);
 
     Ok(())

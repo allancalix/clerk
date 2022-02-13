@@ -18,7 +18,7 @@ impl<T: HttpClient> LinkController<T> {
         let mut connections = vec!();
 
         for link in links {
-            let canonical = client.item(link.access_token.clone()).await?;
+            let canonical = client.item(&link.access_token).await?;
             let state = match &canonical.error {
                 Some(err) => {
                     let message = match &err.error_message {
@@ -42,9 +42,11 @@ impl<T: HttpClient> LinkController<T> {
                 },
                 None => Err(anyhow!("no institutions associated with item {}", link.item_id)),
             };
+            let accounts = client.accounts(&link.access_token).await?;
 
             connections.push(Connection {
                 canonical,
+                accounts,
                 state,
                 institution: ins?,
                 alias: link.alias,
@@ -91,6 +93,27 @@ impl<T: HttpClient> LinkController<T> {
 
         Ok(String::from_utf8(tw.into_inner()?)?)
     }
+
+    pub fn display_accounts_table(&self) -> Result<String> {
+        let mut tw = TabWriter::new(vec![]);
+        writeln!(tw, "Institution\tAccount\tAccount ID\tType\tStatus")?;
+
+        for conn in &self.connections {
+            for account in &conn.accounts {
+                writeln!(
+                    tw,
+                    "{}\t{}\t{}\t{:?}\t{:?}",
+                    conn.institution.name,
+                    account.name,
+                    account.account_id,
+                    account.r#type,
+                    conn.canonical.consent_expiration_time
+                )?;
+            }
+        }
+
+        Ok(String::from_utf8(tw.into_inner()?)?)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -119,7 +142,7 @@ struct Connection {
 
     canonical: rplaid::model::Item,
     institution: rplaid::model::Institution,
-    // accounts: Vec<rplaid::model::Account>,
+    accounts: Vec<rplaid::model::Account>,
 }
 
 #[cfg(test)]
