@@ -95,8 +95,8 @@ async fn balances(conf: ConfigFile) -> Result<()> {
                 tw,
                 "{}\t{}\t{}",
                 b.name,
-                b.balances.available.unwrap(),
-                b.balances.current.unwrap()
+                b.balances.available.unwrap_or(0.0),
+                b.balances.current.unwrap_or(0.0)
             )?;
         }
     }
@@ -111,8 +111,8 @@ async fn balances(conf: ConfigFile) -> Result<()> {
                 tw,
                 "{}\t{}\t{}",
                 b.name,
-                b.balances.available.unwrap(),
-                b.balances.current.unwrap()
+                b.balances.available.unwrap_or(0.0),
+                b.balances.current.unwrap_or(0.0)
             )?;
         }
     }
