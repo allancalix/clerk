@@ -3,12 +3,13 @@ use std::sync::{Arc, Mutex};
 use anyhow::Result;
 use clap::ArgMatches;
 use crossbeam_channel::{bounded, Receiver};
-use rplaid::client::{Builder, Credentials};
+use plaid_link::{LinkMode, State};
+use rplaid::client::{Builder, Credentials, Environment};
 use tokio::signal;
-use tokio::time::{sleep_until, Instant, Duration};
+use tokio::time::{sleep_until, Duration, Instant};
 
-use crate::link_server::LinkMode;
 use crate::model::{AppData, ConfigFile};
+use crate::plaid::{Link, LinkStatus};
 
 async fn shutdown_signal(rx: Receiver<()>) {
     let ctrl_c = async {
@@ -48,7 +49,7 @@ async fn shutdown_signal(rx: Receiver<()>) {
     println!("signal received, starting graceful shutdown");
 }
 
-async fn server(conf: ConfigFile, mode: crate::link_server::LinkMode) -> Result<()> {
+async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
     let state = Arc::new(Mutex::new(AppData::new()?));
     let plaid = Builder::new()
         .with_credentials(Credentials {
@@ -59,10 +60,20 @@ async fn server(conf: ConfigFile, mode: crate::link_server::LinkMode) -> Result<
         .build();
 
     let (tx, rx) = bounded(1);
-    let server = crate::link_server::LinkServer {
+    let server = plaid_link::LinkServer {
         client: plaid,
         on_exchange: move |link| {
-            state.lock().unwrap().add_link(link).unwrap();
+            state
+                .lock()
+                .unwrap()
+                .add_link(Link {
+                    alias: "test".to_string(),
+                    access_token: link.access_token,
+                    item_id: link.item_id,
+                    state: LinkStatus::Active,
+                    env: Environment::Sandbox,
+                })
+                .unwrap();
 
             tx.send(()).unwrap();
         },
@@ -74,11 +85,15 @@ async fn server(conf: ConfigFile, mode: crate::link_server::LinkMode) -> Result<
         .serve(router.into_make_service())
         .with_graceful_shutdown(shutdown_signal(rx));
 
+    let state = State {
+        user_id: "test-user".to_string(),
+        context: None,
+    };
     match mode {
-        LinkMode::Create => println!("Visit http://{}/link to link a new account.", addr),
+        LinkMode::Create => println!("Visit http://{}/link?state={} to link a new account.", addr, state.to_opaque()?),
         LinkMode::Update(s) => println!(
-            "Visit http://{}/link?mode=update&token={} to link a new account.",
-            addr, s
+            "Visit http://{}/link?mode=update&token={}&state={} to link a new account.",
+            addr, s, state.to_opaque()?
         ),
     };
 
@@ -119,6 +134,7 @@ async fn status(conf: ConfigFile) -> Result<()> {
         crate::plaid::LinkController::new(plaid, app_data.links_by_env(&conf.config().plaid.env))
             .await?;
     println!("{}", link_controller.display_connections_table()?);
+
     Ok(())
 }
 
@@ -133,14 +149,8 @@ pub(crate) async fn run(matches: &ArgMatches, conf: ConfigFile) -> Result<()> {
             remove(conf, item_id).await
         }
         _ => match matches.value_of("update") {
-            Some(token) => {
-                server(
-                    conf,
-                    crate::link_server::LinkMode::Update(token.to_string()),
-                )
-                .await
-            }
-            None => server(conf, crate::link_server::LinkMode::Create).await,
+            Some(token) => server(conf, plaid_link::LinkMode::Update(token.to_string())).await,
+            None => server(conf, plaid_link::LinkMode::Create).await,
         },
     }
 }

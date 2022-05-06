@@ -6,11 +6,11 @@ use anyhow::{anyhow, Result};
 use rplaid::client::Environment;
 
 fn to_plaid_opts(id: &str, secret: &str, env: &str) -> Result<PlaidOpts> {
-    if id.len() < 1 {
+    if id.is_empty() {
         return Err(anyhow!("Plaid client ID must not be empty"));
     }
 
-    if secret.len() < 1 {
+    if secret.is_empty() {
         return Err(anyhow!("Plaid client secret must not be empty"));
     }
 
@@ -33,6 +33,12 @@ fn to_plaid_opts(id: &str, secret: &str, env: &str) -> Result<PlaidOpts> {
 }
 
 fn init_config(conf: ConfigFile) -> Result<()> {
+    if conf.valid() {
+        println!("Valid configuration already configured.");
+
+        return Ok(());
+    }
+
     let mut buf = String::new();
     print!("Plaid Client ID: ");
     stdout().flush().unwrap();
@@ -67,12 +73,13 @@ pub(crate) async fn run(conf_path: Option<&str>) -> Result<()> {
         None => ConfigFile::default_config_path()?,
     };
 
-    let fd = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open(&path)?;
-    let conf = ConfigFile::read_from_file(fd, path)?;
+    let conf = if path.exists() {
+        let fd = OpenOptions::new().read(true).write(true).open(&path)?;
+        ConfigFile::read_from_file(fd, path)?
+    } else {
+        OpenOptions::new().write(true).create(true).open(&path)?;
+        ConfigFile::new(path)
+    };
 
     init_config(conf)?;
 

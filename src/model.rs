@@ -34,6 +34,20 @@ pub(crate) struct PlaidOpts {
 }
 
 impl ConfigFile {
+    pub(crate) fn new(file_path: std::path::PathBuf) -> Self {
+        Self {
+            path: file_path,
+            conf: Conf {
+                rules: vec![],
+                plaid: PlaidOpts {
+                    client_id: String::new(),
+                    secret: String::new(),
+                    env: Environment::Sandbox,
+                },
+            },
+        }
+    }
+
     pub(crate) fn default_config_path() -> Result<std::path::PathBuf> {
         Ok(dirs::config_dir()
             .unwrap_or(std::env::current_dir()?)
@@ -109,6 +123,10 @@ impl ConfigFile {
         }
 
         rules
+    }
+
+    pub(crate) fn valid(&self) -> bool {
+        !self.conf.plaid.client_id.is_empty() && !self.conf.plaid.secret.is_empty()
     }
 }
 
@@ -188,7 +206,7 @@ impl AppData {
             .store
             .links
             .iter()
-            .position(|link| link.item_id == link.item_id)
+            .position(|entry| entry.item_id == link.item_id)
         {
             Some(pos) => {
                 self.store.links[pos] = link;

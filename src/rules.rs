@@ -32,6 +32,7 @@ fn contains(query: &Regexp) -> Result<bool, ketos::Error> {
 
 pub struct Transformer {
     interpreter: Interpreter,
+    valid: bool,
 }
 
 impl Transformer {
@@ -56,6 +57,7 @@ impl Transformer {
 
         Ok(Self {
             interpreter: interp,
+            valid: !rules.is_empty(),
         })
     }
 
@@ -67,6 +69,20 @@ impl Transformer {
             },
             None => String::new(),
         };
+
+        // When no rule scripts are configured, return an identity script (fun x -> x).
+        if !self.valid {
+            return Ok(TransactionValue {
+                processor,
+                payee: xact.name.clone(),
+                source_account: xact.account_id.clone(),
+                dest_account: "Expenses:Unknown".into(),
+                amount: xact.amount,
+                date: xact.date.clone(),
+                pending: xact.pending,
+                plaid_id: xact.transaction_id.clone(),
+            });
+        }
 
         let tx = std::rc::Rc::new(TransactionValue {
             processor,
@@ -80,7 +96,7 @@ impl Transformer {
         });
         let out = self
             .interpreter
-            .call("transform", vec![Value::Foreign(tx.clone())])
+            .call("transform", vec![Value::Foreign(tx)])
             .map_err(|e| anyhow!("{}", e))?;
         let v = TransactionValue::from_value(out).map_err(|e| anyhow!("{}", e))?;
         Ok(v)

@@ -1,7 +1,6 @@
 mod accounts;
 mod init;
 mod link;
-mod link_server;
 mod model;
 mod plaid;
 mod rules;
@@ -18,11 +17,10 @@ use clap::clap_app;
 use crate::model::ConfigFile;
 
 static CLIENT_NAME: &str = "ledgersync";
-static PRODUCTS: [&str; 1] = ["transactions"];
 static COUNTRY_CODES: [&str; 1] = ["US"];
 
 async fn run() -> Result<()> {
-    let matches = clap_app!(ledgersync =>
+    let app = clap_app!(ledgersync =>
         (setting: clap::AppSettings::SubcommandRequired)
         (version: "0.1.0")
         (author: "Allan Calix <allan@acx.dev>")
@@ -39,8 +37,7 @@ async fn run() -> Result<()> {
             (@arg update: -u --update [ACCESS_TOKEN] "Update a link for an existing \
              account link, must pass the access token for the expired link.")
             (@subcommand status =>
-                (about: "Displays all links and their current status known to
-                 ledgersync.")
+                (about: "Displays all links and their current status.")
             )
             (@subcommand delete =>
                 (about: "Deletes a Plaid account link.")
@@ -73,23 +70,22 @@ async fn run() -> Result<()> {
                  generate.")
             )
         )
-    )
-    .get_matches();
+    );
 
-    match matches.subcommand() {
-        Some(("init", _)) => {
-            init::run(matches.value_of("CONFIG")).await?;
+    match app.get_matches().subcommand() {
+        Some(("init", link_matches)) => {
+            init::run(link_matches.value_of("CONFIG")).await?;
         }
         Some(("link", link_matches)) => {
-            let conf = ConfigFile::read(matches.value_of("CONFIG"))?;
+            let conf = ConfigFile::read(link_matches.value_of("CONFIG"))?;
             link::run(link_matches, conf).await?;
         }
         Some(("transactions", link_matches)) => {
-            let conf = ConfigFile::read(matches.value_of("CONFIG"))?;
+            let conf = ConfigFile::read(link_matches.value_of("CONFIG"))?;
             txn::run(link_matches, conf).await?;
         }
         Some(("accounts", link_matches)) => {
-            let conf = ConfigFile::read(matches.value_of("CONFIG"))?;
+            let conf = ConfigFile::read(link_matches.value_of("CONFIG"))?;
             accounts::run(link_matches, conf).await?;
         }
         None => unreachable!("subcommand is required"),

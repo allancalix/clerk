@@ -2,17 +2,57 @@ use std::collections::{BTreeMap, HashSet};
 use std::io::prelude::*;
 
 use anyhow::Result;
+use axum::async_trait;
 use chrono::prelude::*;
 use clap::ArgMatches;
 use futures_util::pin_mut;
 use futures_util::StreamExt;
-use rplaid::client::{Builder, Credentials};
+use rplaid::client::{Builder, Credentials, Plaid};
 use rplaid::model::*;
+use rplaid::HttpClient;
 use tabwriter::TabWriter;
 
 use crate::model::{AppData, ConfigFile};
 use crate::plaid::Link;
 use crate::rules::Transformer;
+
+#[async_trait]
+trait TransactionUpstream {
+    async fn pull(&self, start: NaiveDate, end: NaiveDate) -> Result<Vec<Transaction>>;
+}
+
+struct PlaidUpstream<'a, T: HttpClient> {
+    client: &'a Plaid<T>,
+    token: String,
+}
+
+#[async_trait]
+impl<'a, T: HttpClient> TransactionUpstream for PlaidUpstream<'a, T> {
+    async fn pull(&self, start: NaiveDate, end: NaiveDate) -> Result<Vec<Transaction>> {
+        let start = start.format("%Y-%m-%d").to_string();
+        let end = end.format("%Y-%m-%d").to_string();
+
+        let tx_pages = self.client.transactions_iter(GetTransactionsRequest {
+            access_token: self.token.as_str(),
+            start_date: &start,
+            end_date: &end,
+            options: Some(GetTransactionsOptions {
+                count: Some(100),
+                offset: Some(0),
+                account_ids: None,
+                include_original_description: None,
+            }),
+        });
+        pin_mut!(tx_pages);
+
+        let mut tx_list = vec![];
+        while let Some(page) = tx_pages.next().await {
+            tx_list.extend_from_slice(&page?);
+        }
+
+        Ok(tx_list)
+    }
+}
 
 async fn pull(start: &str, end: &str, conf: ConfigFile) -> Result<()> {
     let state = AppData::new()?;
@@ -39,24 +79,19 @@ async fn pull(start: &str, end: &str, conf: ConfigFile) -> Result<()> {
                 acc.insert((txn.date.clone(), txn.transaction_id.clone()), txn);
                 acc
             });
-    for link in links {
-        let txns = plaid.transactions_iter(GetTransactionsRequest {
-            access_token: link.access_token.as_str(),
-            start_date: start,
-            end_date: end,
-            options: Some(GetTransactionsOptions {
-                count: Some(100),
-                offset: Some(0),
-                account_ids: None,
-                include_original_description: None,
-            }),
-        });
-        pin_mut!(txns);
 
-        while let Some(txn_page) = txns.next().await {
-            for txn in txn_page? {
-                results.insert((txn.date.clone(), txn.transaction_id.clone()), txn);
-            }
+    let start_date = NaiveDate::parse_from_str(start, "%Y-%m-%d")?;
+    let end_date = NaiveDate::parse_from_str(end, "%Y-%m-%d")?;
+
+    for link in links {
+        let upstream = PlaidUpstream {
+            client: &plaid,
+            token: link.access_token.clone(),
+        };
+
+        let txs = upstream.pull(start_date, end_date).await?;
+        for tx in txs {
+            results.insert((tx.date.clone(), tx.transaction_id.clone()), tx);
         }
     }
 
@@ -67,6 +102,20 @@ async fn pull(start: &str, end: &str, conf: ConfigFile) -> Result<()> {
     app_data.set_txns(output)?;
 
     Ok(())
+}
+
+fn print_table(txs: &[crate::rules::TransactionValue]) -> Result<String> {
+    let mut tw = TabWriter::new(vec![]);
+
+    for tx in txs {
+        let status = if tx.pending { "!" } else { "*" };
+        writeln!(tw, "{} {} {}", tx.date, status, tx.payee)?;
+        writeln!(tw, "\t; TXID: {}", tx.plaid_id)?;
+        writeln!(tw, "\t{}\t${:.2}", tx.dest_account, tx.amount)?;
+        writeln!(tw, "\t{}\n", tx.source_account)?;
+    }
+
+    Ok(String::from_utf8(tw.into_inner()?)?)
 }
 
 async fn print_ledger(start: Option<&str>, end: Option<&str>, conf: ConfigFile) -> Result<()> {
@@ -92,48 +141,32 @@ async fn print_ledger(start: Option<&str>, end: Option<&str>, conf: ConfigFile) 
         }
     }
 
-    let mut tw = TabWriter::new(vec![]);
-    for mut txn in app_data
+    let txs: Vec<crate::rules::TransactionValue> = app_data
         .transactions()
         .iter()
         .filter(|t| account_ids.contains(&t.account_id))
-    {
-        let transformed_txn = rules.apply(&mut txn)?;
-
-        let date = NaiveDate::parse_from_str(&transformed_txn.date, "%Y-%m-%d")?;
-        if let Some(start_date) = start {
-            let start_parsed = NaiveDate::parse_from_str(&start_date, "%Y-%m-%d")?;
-            if start_parsed > date {
-                continue;
+        .filter(|t| {
+            let date = NaiveDate::parse_from_str(&t.date, "%Y-%m-%d").unwrap();
+            if let Some(start_date) = start {
+                let start_parsed = NaiveDate::parse_from_str(start_date, "%Y-%m-%d").unwrap();
+                if start_parsed > date {
+                    return false;
+                }
             }
-        }
 
-        if let Some(end_date) = end {
-            let end_parsed = NaiveDate::parse_from_str(&end_date, "%Y-%m-%d")?;
-            if end_parsed < date {
-                continue;
+            if let Some(end_date) = end {
+                let end_parsed = NaiveDate::parse_from_str(end_date, "%Y-%m-%d").unwrap();
+                if end_parsed < date {
+                    return false;
+                }
             }
-        }
 
-        let status = if transformed_txn.pending { "!" } else { "*" };
-        writeln!(
-            tw,
-            "{} {} {}",
-            date.format("%Y/%m/%d"),
-            status,
-            transformed_txn.payee
-        )?;
-        writeln!(tw, "\t; TXID: {}", transformed_txn.plaid_id)?;
-        writeln!(
-            tw,
-            "\t{}\t${:.2}",
-            transformed_txn.dest_account, transformed_txn.amount
-        )?;
-        writeln!(tw, "\t{}\n", &transformed_txn.source_account)?;
-    }
+            true
+        })
+        .map(|t| rules.apply(t).unwrap())
+        .collect();
 
-    let output = String::from_utf8(tw.into_inner()?)?;
-    println!("{}", output);
+    println!("{}", print_table(&txs)?);
 
     Ok(())
 }
@@ -156,13 +189,9 @@ pub(crate) async fn run(matches: &ArgMatches, conf: ConfigFile) -> Result<()> {
             pull(&start, &end, conf).await
         }
         Some(("print", link_matches)) => {
-            let start = link_matches
-                .value_of("begin")
-                .map_or_else(|| None, |v| Some(v));
+            let start = link_matches.value_of("begin").map_or_else(|| None, Some);
 
-            let end = link_matches
-                .value_of("until")
-                .map_or_else(|| None, |v| Some(v));
+            let end = link_matches.value_of("until").map_or_else(|| None, Some);
 
             print_ledger(start, end, conf).await
         }

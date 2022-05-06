@@ -1,7 +1,12 @@
+[workspace]
+members = [
+  "crates/plaid_link",
+]
+
 [package]
 name = "ledgersync"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 axum = "0.5.4"
@@ -15,6 +20,7 @@ crossbeam-channel = "0.5.4"
 futures = "0.3.17"
 futures-util = "0.3.17"
 tabwriter = "1.2.1"
+plaid-link = { path = "crates/plaid_link", version = "0.1.0" }
 http = "0.2.4"
 anyhow = "1.0.43"
 chrono = "0.4.19"
