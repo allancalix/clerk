@@ -5,6 +5,7 @@ use clap::ArgMatches;
 use crossbeam_channel::{bounded, Receiver};
 use rplaid::client::{Builder, Credentials};
 use tokio::signal;
+use tokio::time::{sleep_until, Instant, Duration};
 
 use crate::link_server::LinkMode;
 use crate::model::{AppData, ConfigFile};
@@ -30,6 +31,10 @@ async fn shutdown_signal(rx: Receiver<()>) {
             .unwrap();
     };
 
+    let timeout = async {
+        sleep_until(Instant::now() + Duration::from_secs(300)).await;
+    };
+
     #[cfg(not(unix))]
     let terminate = std::future::pending::<()>();
 
@@ -37,6 +42,7 @@ async fn shutdown_signal(rx: Receiver<()>) {
         _ = ctrl_c => {},
         _ = terminate => {},
         _ = program_shutdown => {},
+        _ = timeout => {},
     }
 
     println!("signal received, starting graceful shutdown");
