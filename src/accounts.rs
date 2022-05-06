@@ -9,8 +9,8 @@ use rplaid::client::{Builder, Credentials};
 use rplaid::model::*;
 use tabwriter::TabWriter;
 
-use crate::plaid::Link;
 use crate::model::{AppData, ConfigFile};
+use crate::plaid::Link;
 
 #[derive(Eq, PartialEq)]
 struct AccountTypeWrapper(AccountType);
@@ -40,8 +40,9 @@ async fn print(conf: ConfigFile) -> Result<()> {
         })
         .with_env(conf.config().plaid.env.clone())
         .build();
-    let link_controller = crate::plaid::LinkController::new(
-        plaid, state.links_by_env(&conf.config().plaid.env)).await?;
+    let link_controller =
+        crate::plaid::LinkController::new(plaid, state.links_by_env(&conf.config().plaid.env))
+            .await?;
 
     let table = link_controller.display_accounts_table()?;
     println!("{}", table);

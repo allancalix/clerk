@@ -1,10 +1,11 @@
 mod accounts;
+mod init;
 mod link;
+mod link_server;
 mod model;
+mod plaid;
 mod rules;
 mod txn;
-mod init;
-mod plaid;
 
 #[macro_use]
 extern crate ketos;
@@ -105,4 +106,3 @@ async fn main() {
         std::process::exit(1);
     }
 }
-

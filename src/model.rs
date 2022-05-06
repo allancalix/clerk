@@ -36,9 +36,9 @@ pub(crate) struct PlaidOpts {
 impl ConfigFile {
     pub(crate) fn default_config_path() -> Result<std::path::PathBuf> {
         Ok(dirs::config_dir()
-                .unwrap_or(std::env::current_dir()?)
-                .join(CLIENT_NAME)
-                .join(CONFIG_NAME))
+            .unwrap_or(std::env::current_dir()?)
+            .join(CLIENT_NAME)
+            .join(CONFIG_NAME))
     }
 
     pub(crate) fn read(path: Option<&str>) -> Result<Self> {
@@ -47,18 +47,19 @@ impl ConfigFile {
             None => ConfigFile::default_config_path()?,
         };
 
-        let mut fd = OpenOptions::new().read(true).open(&p).map_err(|e| {
-            match e.kind() {
+        let mut fd = OpenOptions::new()
+            .read(true)
+            .open(&p)
+            .map_err(|e| match e.kind() {
                 std::io::ErrorKind::NotFound => {
                     let ctx = format!("no configuration file found at: {:?}", p);
                     anyhow::Error::new(e).context(ctx)
-                },
+                }
                 _ => {
                     let ctx = format!("Failed to read configuration {}: {}.", p.display(), e);
                     anyhow::Error::new(e).context(ctx)
-                },
-            }
-        })?;
+                }
+            })?;
         let mut content = String::new();
         fd.read_to_string(&mut content)?;
 
@@ -74,16 +75,11 @@ impl ConfigFile {
         fd.read_to_string(&mut content)?;
 
         let config: Conf = toml::from_str(&content)?;
-        Ok(ConfigFile {
-            path,
-            conf: config,
-        })
+        Ok(ConfigFile { path, conf: config })
     }
 
     pub(crate) fn update(&self, conf: &Conf) -> Result<()> {
-        let mut fd = OpenOptions::new()
-                .write(true)
-                .open(&self.path)?;
+        let mut fd = OpenOptions::new().write(true).open(&self.path)?;
 
         let contents = toml::to_string_pretty(conf)?;
 
@@ -169,13 +165,18 @@ impl AppData {
 
         // Overwrite existing file contents.
         self.handle.set_len(0)?;
-        write!(self.handle, "{}", serde_json::to_string_pretty(&self.store)?)?;
+        write!(
+            self.handle,
+            "{}",
+            serde_json::to_string_pretty(&self.store)?
+        )?;
         self.handle.flush()?;
         Ok(())
     }
 
     pub(crate) fn links_by_env(&self, env: &Environment) -> Vec<Link> {
-        self.store.links
+        self.store
+            .links
             .clone()
             .into_iter()
             .filter(|link| link.env == *env)
@@ -183,13 +184,18 @@ impl AppData {
     }
 
     pub(crate) fn add_link(&mut self, link: Link) -> Result<()> {
-        match self.store.links.iter().position(|link| link.item_id == link.item_id) {
+        match self
+            .store
+            .links
+            .iter()
+            .position(|link| link.item_id == link.item_id)
+        {
             Some(pos) => {
                 self.store.links[pos] = link;
-            },
+            }
             None => {
                 self.store.links.push(link);
-            },
+            }
         };
         self.handle.seek(SeekFrom::Start(0))?;
         write!(

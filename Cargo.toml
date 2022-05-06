@@ -4,13 +4,15 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
+axum = "0.5.4"
 tokio = { version = "1", features = ["full"] }
 rplaid = { version = "0.2.1", features = ["default"], path = "../rplaid" }
-warp = "0.3"
+# warp = "0.3.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 # rust-lang/rust#78835
 clap = "=3.0.0-beta.2"
+crossbeam-channel = "0.5.4"
 futures = "0.3.17"
 futures-util = "0.3.17"
 tabwriter = "1.2.1"
@@ -22,3 +24,4 @@ toml = "0.5.8"
 ketos = "0.12.0"
 ketos_derive = "0.12.0"
 regex = "1.5.4"
+url = "2.2.2"

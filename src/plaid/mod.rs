@@ -1,10 +1,10 @@
 use std::io::Write;
 
-use tabwriter::TabWriter;
 use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
 use rplaid::client::{Environment, Plaid};
 use rplaid::HttpClient;
+use serde::{Deserialize, Serialize};
+use tabwriter::TabWriter;
 
 use crate::COUNTRY_CODES;
 
@@ -15,7 +15,7 @@ pub struct LinkController<T: HttpClient> {
 
 impl<T: HttpClient> LinkController<T> {
     pub async fn new(client: Plaid<T>, links: Vec<Link>) -> Result<LinkController<T>> {
-        let mut connections = vec!();
+        let mut connections = vec![];
 
         for link in links {
             let canonical = client.item(&link.access_token).await?;
@@ -26,21 +26,22 @@ impl<T: HttpClient> LinkController<T> {
                         None => "unexpected error with item".to_string(),
                     };
                     LinkStatus::Degraded(message)
-                },
+                }
                 None => LinkStatus::Active,
             };
 
             let ins: Result<rplaid::model::Institution> = match &canonical.institution_id {
-                Some(id) => {
-                    Ok(client
-                        .get_institution_by_id(&rplaid::model::InstitutionGetRequest {
-                            institution_id: id.as_str(),
-                            country_codes: &COUNTRY_CODES,
-                            options: None,
-                        })
-                    .await?)
-                },
-                None => Err(anyhow!("no institutions associated with item {}", link.item_id)),
+                Some(id) => Ok(client
+                    .get_institution_by_id(&rplaid::model::InstitutionGetRequest {
+                        institution_id: id.as_str(),
+                        country_codes: &COUNTRY_CODES,
+                        options: None,
+                    })
+                    .await?),
+                None => Err(anyhow!(
+                    "no institutions associated with item {}",
+                    link.item_id
+                )),
             };
             let accounts = client.accounts(&link.access_token).await?;
 
@@ -81,7 +82,11 @@ impl<T: HttpClient> LinkController<T> {
             None => Err(anyhow!("no access token found for item {}", id)),
         }?;
 
-        if let Some(pos) = self.connections.iter().position(|connection| connection.item_id == id) {
+        if let Some(pos) = self
+            .connections
+            .iter()
+            .position(|connection| connection.item_id == id)
+        {
             self.connections.remove(pos);
         }
 
@@ -101,7 +106,11 @@ impl<T: HttpClient> LinkController<T> {
         writeln!(tw, "Name\tItem ID\tInstitution\tState")?;
 
         for conn in &self.connections {
-            writeln!(tw, "{}\t{}\t{}\t{:?}", conn.alias, conn.item_id, conn.institution.name, conn.state)?;
+            writeln!(
+                tw,
+                "{}\t{}\t{}\t{:?}",
+                conn.alias, conn.item_id, conn.institution.name, conn.state
+            )?;
         }
 
         Ok(String::from_utf8(tw.into_inner()?)?)
