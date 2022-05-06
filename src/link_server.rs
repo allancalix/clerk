@@ -148,7 +148,6 @@ mod tests {
     use super::*;
 
     use axum::extract::RequestParts;
-    use http::Uri;
 
     fn request_parts_from_uri(uri: &str) -> RequestParts<()> {
         RequestParts::new(http::request::Request::builder().uri(uri).body(()).unwrap())
