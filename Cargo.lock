@@ -493,6 +493,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "clerk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "chrono",
+ "clap",
+ "crossbeam-channel",
+ "dirs 3.0.2",
+ "futures",
+ "futures-util",
+ "http",
+ "ketos",
+ "ketos_derive",
+ "plaid-link",
+ "regex",
+ "rplaid",
+ "serde",
+ "serde_json",
+ "tabwriter",
+ "tokio",
+ "toml",
+ "url",
+]
+
+[[package]]
 name = "concurrent-queue"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1217,32 +1243,6 @@ name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
-
-[[package]]
-name = "ledgersync"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "chrono",
- "clap",
- "crossbeam-channel",
- "dirs 3.0.2",
- "futures",
- "futures-util",
- "http",
- "ketos",
- "ketos_derive",
- "plaid-link",
- "regex",
- "rplaid",
- "serde",
- "serde_json",
- "tabwriter",
- "tokio",
- "toml",
- "url",
-]
 
 [[package]]
 name = "lexical-core"

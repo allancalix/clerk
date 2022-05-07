@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use url::Url;
 
-static CLIENT_NAME: &str = "ledgersync";
+static CLIENT_NAME: &str = "clerk";
 static PRODUCTS: [&str; 1] = ["transactions"];
 static COUNTRY_CODES: [&str; 1] = ["US"];
 

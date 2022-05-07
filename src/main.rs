@@ -16,15 +16,15 @@ use clap::clap_app;
 
 use crate::model::ConfigFile;
 
-static CLIENT_NAME: &str = "ledgersync";
+static CLIENT_NAME: &str = "clerk";
 static COUNTRY_CODES: [&str; 1] = ["US"];
 
 async fn run() -> Result<()> {
-    let app = clap_app!(ledgersync =>
+    let app = clap_app!(clerk =>
         (setting: clap::AppSettings::SubcommandRequired)
         (version: "0.1.0")
         (author: "Allan Calix <allan@acx.dev>")
-        (about: "The ledgersync utility pulls data from an upstream source, such \
+        (about: "The clerk utility pulls data from an upstream source, such \
          as Plaid APIs, and generates Ledger records from the transactions.")
         (@arg CONFIG: -c --config [FILE] "Sets a custom config file")
         (@arg verbose: -v --verbose "Sets the level of verbosity")

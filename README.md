@@ -76,28 +76,28 @@ __Output with [scripting rules](transform.keto)__.
 
 ### Building from source
 ```sh
-# Binary found in ./target/release/ledgersync
+# Binary found in ./target/release/clerk
 cargo build --release
 ```
 
 ### Prebuilt Binaries
 Prebuilt binaries for Linux and MacOS (pre-M1) can be found for the latest
-[release](https://github.com/allancalix/ledgersync/releases).
+[release](https://github.com/allancalix/clerk/releases).
 
 ## Usage
 
 ### Configuration
-ledgersync requires a [configuration file](ledgersync.toml) and optionally one
+clerk requires a [configuration file](ledgersync.toml) and optionally one
 or more [keto scripts](transform.keto) for processing transactions into Ledger
 entries. The script in this repository highlights some features of scripting
 provides such as __categorizing, aliasing, and regex-based matching__.
 
 ```sh
 # Providing a configuration file explicitly.
-ledgersync -c ledgersync.toml accounts
+clerk -c ledgersync.toml accounts
 ```
 
-If no configuration is explicitly given, ledgersync will search for a file called
+If no configuration is explicitly given, clerk will search for a file called
 `config.toml` in directories based on the [XDG user directory spec](https://www.freedesktop.org/wiki/Software/xdg-user-dirs/)
 on Linux and the [Standard Directories][] on MacOS.
 
@@ -111,7 +111,7 @@ institution. This is done by serving [Plaid Link][] on your local machine to
 perform authentication.
 
 ```sh
-ledgersync link
+clerk link
 # Visit http://127.0.0.1:3030/link to link a new account
 ```
 
@@ -121,15 +121,15 @@ Commands for interacting with transaction data for all tracked accounts.
 ```sh
 # Prints out Ledger records for each transaction, can be filtered out by date using
 # the --begin and --until flags respectively.
-ledgersync transactions print
+clerk transactions print
 
 # Pulls all transaction data for all accounts tracked in the given time range. By
 # default, this command pulls the last 2 weeks of transactions. Time range can be
 # manipulated using the --begin and --until commands.
-ledgersync transactions sync
+clerk transactions sync
 
 # Filtering the first two weeks of September.
-ledgersync transactions sync --begin 2021-09-01 --until 2021-09-14
+clerk transactions sync --begin 2021-09-01 --until 2021-09-14
 ```
 
 ### Accounts
@@ -138,10 +138,10 @@ accounts you have an active access token for).
 
 ```sh
 # List all tracked accounts.
-ledgersync accounts
+clerk accounts
 # Display the current balance for tracked accounts. This command pulls the latest
 # data and tends to be relatively slow.
-ledgersync accounts balance
+clerk accounts balance
 ```
 
 ## Caveats

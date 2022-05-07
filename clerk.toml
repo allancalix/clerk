@@ -1,4 +1,4 @@
-# An example ledgersync configuration file.
+# An example clerk configuration file.
 rules = ["transform.keto"] # Relative paths are relative to the configuration file. Absolute paths also work.
 
 [plaid]
