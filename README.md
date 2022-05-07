@@ -1,4 +1,4 @@
-# Ledgersync
+# Clerk
 
 A utility for automatically generating Ledger entries from [Plaid API][Plaid]
 data.
@@ -111,8 +111,19 @@ institution. This is done by serving [Plaid Link][] on your local machine to
 perform authentication.
 
 ```sh
+# Initializes a configuration file with interactive shell prompts.
+clerk init
+
 clerk link
 # Visit http://127.0.0.1:3030/link to link a new account
+
+# List all link items and their current status.
+clerk link status
+
+# Delete a link item from account links preventing future queries from retturning
+# data for this link. This does not delete transaction of account data.
+
+clerk link delete <ITEM_ID>
 ```
 
 ### Transactions
