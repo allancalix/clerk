@@ -2,12 +2,12 @@ use anyhow::Result;
 use clap::ArgMatches;
 use crossbeam_channel::{bounded, Receiver};
 use plaid_link::{LinkMode, State};
-use rplaid::client::{Builder, Credentials, Environment};
+use rplaid::client::Environment;
 use tokio::signal;
 use tokio::time::{sleep_until, Duration, Instant};
 
 use crate::model::ConfigFile;
-use crate::plaid::{Link, LinkStatus};
+use crate::plaid::{Link, LinkStatus, default_plaid_client};
 use crate::store;
 
 async fn shutdown_signal(rx: Receiver<()>) {
@@ -122,16 +122,6 @@ async fn status(conf: ConfigFile) -> Result<()> {
     println!("{}", link_controller.display_connections_table()?);
 
     Ok(())
-}
-
-fn default_plaid_client(conf: &ConfigFile) -> rplaid::client::Plaid<impl rplaid::HttpClient> {
-    Builder::new()
-        .with_credentials(Credentials {
-            client_id: conf.config().plaid.client_id.clone(),
-            secret: conf.config().plaid.secret.clone(),
-        })
-        .with_env(conf.config().plaid.env.clone())
-        .build()
 }
 
 pub(crate) async fn run(matches: &ArgMatches, conf: ConfigFile) -> Result<()> {
