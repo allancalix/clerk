@@ -1,5 +1,3 @@
-use std::sync::{Arc, Mutex};
-
 use anyhow::Result;
 use clap::ArgMatches;
 use crossbeam_channel::{bounded, Receiver};

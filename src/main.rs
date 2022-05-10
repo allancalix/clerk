@@ -74,7 +74,7 @@ async fn run() -> Result<()> {
     );
 
     match app.clone().get_matches().subcommand() {
-        Some(("init", link_matches)) => {
+        Some(("init", _link_matches)) => {
             init::run(app.get_matches().value_of("CONFIG")).await?;
         }
         Some(("link", link_matches)) => {

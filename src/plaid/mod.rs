@@ -9,13 +9,12 @@ use tabwriter::TabWriter;
 use crate::model::ConfigFile;
 use crate::COUNTRY_CODES;
 
-pub struct LinkController<T: HttpClient> {
-    client: Plaid<T>,
+pub struct LinkController {
     connections: Vec<Connection>,
 }
 
-impl<T: HttpClient> LinkController<T> {
-    pub async fn new(client: Plaid<T>, links: Vec<Link>) -> Result<LinkController<T>> {
+impl LinkController {
+    pub async fn new<T: HttpClient>(client: Plaid<T>, links: Vec<Link>) -> Result<LinkController> {
         let mut connections = vec![];
 
         for link in links {
@@ -58,48 +57,7 @@ impl<T: HttpClient> LinkController<T> {
             });
         }
 
-        Ok(LinkController {
-            client,
-            connections,
-        })
-    }
-
-    pub fn links(&self) -> Vec<Link> {
-        self.connections
-            .iter()
-            .map(|conn| Link {
-                alias: conn.alias.clone(),
-                item_id: conn.item_id.clone(),
-                access_token: conn.access_token.clone(),
-                env: conn.env.clone(),
-                state: conn.state.clone(),
-            })
-            .collect()
-    }
-
-    pub async fn remove_item(&mut self, id: &str) -> Result<()> {
-        match self.get_access_token_by_item_id(id) {
-            Some(token) => Ok(self.client.item_del(token).await?),
-            None => Err(anyhow!("no access token found for item {}", id)),
-        }?;
-
-        if let Some(pos) = self
-            .connections
-            .iter()
-            .position(|connection| connection.item_id == id)
-        {
-            self.connections.remove(pos);
-        }
-
-        Ok(())
-    }
-
-    pub fn get_access_token_by_item_id(&self, id: &str) -> Option<String> {
-        self.connections
-            .iter()
-            .filter(|connection| connection.item_id == id)
-            .next()
-            .map(|item| item.access_token.to_string())
+        Ok(LinkController { connections })
     }
 
     pub fn display_connections_table(&self) -> Result<String> {

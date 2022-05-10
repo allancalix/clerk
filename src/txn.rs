@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use std::io::prelude::*;
 
 use anyhow::Result;
@@ -7,7 +7,7 @@ use chrono::prelude::*;
 use clap::ArgMatches;
 use futures_util::pin_mut;
 use futures_util::StreamExt;
-use rplaid::client::{Builder, Credentials, Plaid};
+use rplaid::client::Plaid;
 use rplaid::model::*;
 use rplaid::HttpClient;
 use tabwriter::TabWriter;

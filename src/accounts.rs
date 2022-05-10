@@ -5,7 +5,6 @@ use std::io::prelude::*;
 use anyhow::Result;
 use clap::ArgMatches;
 use futures::future::join_all;
-use rplaid::client::{Builder, Credentials};
 use rplaid::model::*;
 use tabwriter::TabWriter;
 

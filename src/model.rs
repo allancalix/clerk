@@ -1,14 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::prelude::*;
-use std::io::SeekFrom;
 use std::path::PathBuf;
 
 use anyhow::Result;
 use rplaid::client::Environment;
-use rplaid::model::*;
 
-use crate::plaid::Link;
 use crate::CLIENT_NAME;
 
 const CONFIG_NAME: &str = "config.toml";
