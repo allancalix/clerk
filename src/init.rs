@@ -63,6 +63,7 @@ fn init_config(conf: ConfigFile) -> Result<()> {
     conf.update(&Conf {
         rules: vec![],
         plaid: opts,
+        db_file: None,
     })?;
     Ok(())
 }

@@ -101,12 +101,6 @@ where
     }
 }
 
-// #[derive(Debug, Clone)]
-// pub struct LinkConfiguration {
-//     country_codes: Vec<String>,
-//     products: Vec<String>,
-// }
-
 /// State can be used to curry data during the link flow lifecycle.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct State {
@@ -168,18 +162,35 @@ pub struct Token {
     pub state: State,
 }
 
-pub struct LinkServer<T: Fn(Token) + Send + Sync + 'static, S: HttpClient> {
+use tokio::sync::broadcast;
+
+pub struct LinkServer<S: HttpClient> {
     pub client: Plaid<S>,
-    pub on_exchange: T,
+    pub link_channel: broadcast::Sender<Token>,
+    pub listener: broadcast::Receiver<Token>,
 }
 
-impl<T: Fn(Token) + Send + Sync + 'static, S: HttpClient> LinkServer<T, S> {
+impl<S: HttpClient> LinkServer<S> {
+    pub fn new(client: Plaid<S>) -> Self {
+        let (tx, rx) = broadcast::channel(1);
+
+        Self {
+            client,
+            link_channel: tx,
+            listener: rx,
+        }
+    }
+
+    pub fn on_exchange(&self) -> broadcast::Receiver<Token> {
+        self.link_channel.subscribe()
+    }
+
     pub fn start(self) -> Router {
         Router::new()
             .route("/link", get(initialize_link))
-            .route("/exchange/:token", get(exchange_token::<T>))
+            .route("/exchange/:token", get(exchange_token))
             .layer(Extension(Arc::new(self.client)))
-            .layer(Extension(Arc::new(self.on_exchange)))
+            .layer(Extension(self.link_channel))
     }
 }
 
@@ -234,22 +245,24 @@ async fn initialize_link(
     }
 }
 
-async fn exchange_token<'a, T: Fn(Token) + Send + Sync + 'static>(
+async fn exchange_token<'a>(
     Path(token): Path<String>,
     state: State,
-    on_exchange: Extension<Arc<T>>,
     client: Extension<Arc<Plaid<Box<dyn HttpClient>>>>,
+    on_exchange: Extension<broadcast::Sender<Token>>,
 ) -> Result<Html<&'a str>, LinkError> {
     let res = client
         .exchange_public_token(token)
         .await
         .map_err(LinkError::LinkClientError)?;
 
-    on_exchange(Token {
-        item_id: res.item_id,
-        access_token: res.access_token,
-        state,
-    });
+    on_exchange
+        .send(Token {
+            item_id: res.item_id,
+            access_token: res.access_token,
+            state,
+        })
+        .unwrap();
 
     Ok(Html("OK"))
 }

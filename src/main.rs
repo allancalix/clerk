@@ -4,6 +4,7 @@ mod link;
 mod model;
 mod plaid;
 mod rules;
+mod store;
 mod txn;
 
 #[macro_use]
@@ -72,20 +73,20 @@ async fn run() -> Result<()> {
         )
     );
 
-    match app.get_matches().subcommand() {
+    match app.clone().get_matches().subcommand() {
         Some(("init", link_matches)) => {
-            init::run(link_matches.value_of("CONFIG")).await?;
+            init::run(app.get_matches().value_of("CONFIG")).await?;
         }
         Some(("link", link_matches)) => {
-            let conf = ConfigFile::read(link_matches.value_of("CONFIG"))?;
+            let conf = ConfigFile::read(app.get_matches().value_of("CONFIG"))?;
             link::run(link_matches, conf).await?;
         }
         Some(("transactions", link_matches)) => {
-            let conf = ConfigFile::read(link_matches.value_of("CONFIG"))?;
+            let conf = ConfigFile::read(app.get_matches().value_of("CONFIG"))?;
             txn::run(link_matches, conf).await?;
         }
         Some(("accounts", link_matches)) => {
-            let conf = ConfigFile::read(link_matches.value_of("CONFIG"))?;
+            let conf = ConfigFile::read(app.get_matches().value_of("CONFIG"))?;
             accounts::run(link_matches, conf).await?;
         }
         None => unreachable!("subcommand is required"),

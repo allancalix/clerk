@@ -12,8 +12,8 @@ use rplaid::model::*;
 use rplaid::HttpClient;
 use tabwriter::TabWriter;
 
-use crate::model::{AppData, ConfigFile};
-use crate::plaid::Link;
+use crate::model::ConfigFile;
+use crate::plaid::{default_plaid_client, Link};
 use crate::rules::Transformer;
 
 #[async_trait]
@@ -55,30 +55,10 @@ impl<'a, T: HttpClient> TransactionUpstream for PlaidUpstream<'a, T> {
 }
 
 async fn pull(start: &str, end: &str, conf: ConfigFile) -> Result<()> {
-    let state = AppData::new()?;
-    let plaid = Builder::new()
-        .with_credentials(Credentials {
-            client_id: conf.config().plaid.client_id.clone(),
-            secret: conf.config().plaid.secret.clone(),
-        })
-        .with_env(conf.config().plaid.env.clone())
-        .build();
-    let links: Vec<Link> = state
-        .links()
-        .into_iter()
-        .filter(|link| link.env == conf.config().plaid.env)
-        .collect();
-
-    let mut app_data = AppData::new()?;
-    let mut results =
-        app_data
-            .transactions()
-            .clone()
-            .into_iter()
-            .fold(BTreeMap::new(), |mut acc, txn| {
-                acc.insert((txn.date.clone(), txn.transaction_id.clone()), txn);
-                acc
-            });
+    let mut store = crate::store::SqliteStore::new(&conf.data_path()?).await?;
+    let plaid = default_plaid_client(&conf);
+    println!("{:?}", store.links().await?);
+    let links: Vec<Link> = store.links().await?;
 
     let start_date = NaiveDate::parse_from_str(start, "%Y-%m-%d")?;
     let end_date = NaiveDate::parse_from_str(end, "%Y-%m-%d")?;
@@ -89,17 +69,11 @@ async fn pull(start: &str, end: &str, conf: ConfigFile) -> Result<()> {
             token: link.access_token.clone(),
         };
 
-        let txs = upstream.pull(start_date, end_date).await?;
-        for tx in txs {
-            results.insert((tx.date.clone(), tx.transaction_id.clone()), tx);
+        println!("Pulling transactions for item {}", &link.item_id);
+        for tx in upstream.pull(start_date, end_date).await? {
+            store.save_tx(&link.item_id, &tx).await?;
         }
     }
-
-    let output = results
-        .into_iter()
-        .map(|(_, v)| v)
-        .collect::<Vec<Transaction>>();
-    app_data.set_txns(output)?;
 
     Ok(())
 }
@@ -119,30 +93,21 @@ fn print_table(txs: &[crate::rules::TransactionValue]) -> Result<String> {
 }
 
 async fn print_ledger(start: Option<&str>, end: Option<&str>, conf: ConfigFile) -> Result<()> {
-    let app_data = AppData::new()?;
+    let mut store = crate::store::SqliteStore::new(&conf.data_path()?).await?;
     let rules = Transformer::from_rules(conf.rules())?;
-    let plaid = Builder::new()
-        .with_credentials(Credentials {
-            client_id: conf.config().plaid.client_id.clone(),
-            secret: conf.config().plaid.secret.clone(),
-        })
-        .with_env(conf.config().plaid.env.clone())
-        .build();
+    let plaid = default_plaid_client(&conf);
 
     let mut account_ids = HashSet::new();
-    for link in app_data
-        .links()
-        .iter()
-        .filter(|link| link.env == conf.config().plaid.env)
-    {
+    for link in store.links().await? {
         let accounts = plaid.accounts(&link.access_token).await?;
         for account in accounts {
             account_ids.insert(account.account_id);
         }
     }
 
-    let txs: Vec<crate::rules::TransactionValue> = app_data
+    let txs: Vec<crate::rules::TransactionValue> = store
         .transactions()
+        .await?
         .iter()
         .filter(|t| account_ids.contains(&t.account_id))
         .filter(|t| {

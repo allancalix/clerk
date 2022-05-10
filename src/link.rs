@@ -8,8 +8,9 @@ use rplaid::client::{Builder, Credentials, Environment};
 use tokio::signal;
 use tokio::time::{sleep_until, Duration, Instant};
 
-use crate::model::{AppData, ConfigFile};
+use crate::model::ConfigFile;
 use crate::plaid::{Link, LinkStatus};
+use crate::store;
 
 async fn shutdown_signal(rx: Receiver<()>) {
     let ctrl_c = async {
@@ -50,34 +51,29 @@ async fn shutdown_signal(rx: Receiver<()>) {
 }
 
 async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
-    let state = Arc::new(Mutex::new(AppData::new()?));
-    let plaid = Builder::new()
-        .with_credentials(Credentials {
-            client_id: conf.config().plaid.client_id.clone(),
-            secret: conf.config().plaid.secret.clone(),
-        })
-        .with_env(conf.config().plaid.env.clone())
-        .build();
+    let plaid = default_plaid_client(&conf);
 
     let (tx, rx) = bounded(1);
-    let server = plaid_link::LinkServer {
-        client: plaid,
-        on_exchange: move |link| {
-            state
-                .lock()
-                .unwrap()
-                .add_link(Link {
-                    alias: "test".to_string(),
-                    access_token: link.access_token,
-                    item_id: link.item_id,
-                    state: LinkStatus::Active,
-                    env: Environment::Sandbox,
-                })
-                .unwrap();
+    let server = plaid_link::LinkServer::new(plaid);
 
-            tx.send(()).unwrap();
-        },
-    };
+    let mut listener = server.on_exchange();
+    let mut store = store::SqliteStore::new(&conf.data_path()?).await?;
+    tokio::spawn(async move {
+        let token = listener.recv().await.unwrap();
+
+        store
+            .save_link(&Link {
+                alias: "test".to_string(),
+                access_token: token.access_token,
+                item_id: token.item_id,
+                state: LinkStatus::Active,
+                env: Environment::Sandbox,
+            })
+            .await
+            .unwrap();
+
+        tx.send(()).unwrap();
+    });
 
     let router = server.start();
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 4545));
@@ -90,10 +86,16 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
         context: None,
     };
     match mode {
-        LinkMode::Create => println!("Visit http://{}/link?state={} to link a new account.", addr, state.to_opaque()?),
+        LinkMode::Create => println!(
+            "Visit http://{}/link?state={} to link a new account.",
+            addr,
+            state.to_opaque()?
+        ),
         LinkMode::Update(s) => println!(
             "Visit http://{}/link?mode=update&token={}&state={} to link a new account.",
-            addr, s, state.to_opaque()?
+            addr,
+            s,
+            state.to_opaque()?
         ),
     };
 
@@ -103,39 +105,35 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
 }
 
 async fn remove(conf: ConfigFile, item_id: &str) -> Result<()> {
-    let mut app_data = AppData::new()?;
-    let plaid = Builder::new()
-        .with_credentials(Credentials {
-            client_id: conf.config().plaid.client_id.clone(),
-            secret: conf.config().plaid.secret.clone(),
-        })
-        .with_env(conf.config().plaid.env.clone())
-        .build();
-    let mut link_controller =
-        crate::plaid::LinkController::new(plaid, app_data.links_by_env(&conf.config().plaid.env))
-            .await?;
-    link_controller.remove_item(item_id).await?;
-    app_data.update_links(link_controller.links())?;
+    let mut store = store::SqliteStore::new(&conf.data_path()?).await?;
+    let plaid = default_plaid_client(&conf);
+
+    let link = store.delete_link(item_id).await?;
+    plaid.item_del(&link.access_token).await?;
 
     Ok(())
 }
 
 async fn status(conf: ConfigFile) -> Result<()> {
-    let app_data = AppData::new()?;
-    let plaid = Builder::new()
+    let mut store = store::SqliteStore::new(&conf.data_path()?).await?;
+
+    let link_controller =
+        crate::plaid::LinkController::new(default_plaid_client(&conf), store.links().await?)
+            .await?;
+
+    println!("{}", link_controller.display_connections_table()?);
+
+    Ok(())
+}
+
+fn default_plaid_client(conf: &ConfigFile) -> rplaid::client::Plaid<impl rplaid::HttpClient> {
+    Builder::new()
         .with_credentials(Credentials {
             client_id: conf.config().plaid.client_id.clone(),
             secret: conf.config().plaid.secret.clone(),
         })
         .with_env(conf.config().plaid.env.clone())
-        .build();
-
-    let link_controller =
-        crate::plaid::LinkController::new(plaid, app_data.links_by_env(&conf.config().plaid.env))
-            .await?;
-    println!("{}", link_controller.display_connections_table()?);
-
-    Ok(())
+        .build()
 }
 
 pub(crate) async fn run(matches: &ArgMatches, conf: ConfigFile) -> Result<()> {

@@ -9,8 +9,8 @@ use rplaid::client::{Builder, Credentials};
 use rplaid::model::*;
 use tabwriter::TabWriter;
 
-use crate::model::{AppData, ConfigFile};
-use crate::plaid::Link;
+use crate::model::ConfigFile;
+use crate::plaid::{default_plaid_client, Link};
 
 #[derive(Eq, PartialEq)]
 struct AccountTypeWrapper(AccountType);
@@ -32,39 +32,22 @@ impl PartialEq<AccountType> for AccountTypeWrapper {
 }
 
 async fn print(conf: ConfigFile) -> Result<()> {
-    let state = AppData::new()?;
-    let plaid = Builder::new()
-        .with_credentials(Credentials {
-            client_id: conf.config().plaid.client_id.clone(),
-            secret: conf.config().plaid.secret.clone(),
-        })
-        .with_env(conf.config().plaid.env.clone())
-        .build();
-    let link_controller =
-        crate::plaid::LinkController::new(plaid, state.links_by_env(&conf.config().plaid.env))
-            .await?;
+    let mut store = crate::store::SqliteStore::new(&conf.data_path()?).await?;
+    let plaid = default_plaid_client(&conf);
+    let link_controller = crate::plaid::LinkController::new(plaid, store.links().await?).await?;
 
     let table = link_controller.display_accounts_table()?;
+
     println!("{}", table);
 
     Ok(())
 }
 
 async fn balances(conf: ConfigFile) -> Result<()> {
-    let state = AppData::new()?;
-    let plaid = Builder::new()
-        .with_credentials(Credentials {
-            client_id: conf.config().plaid.client_id.clone(),
-            secret: conf.config().plaid.secret.clone(),
-        })
-        .with_env(conf.config().plaid.env.clone())
-        .build();
+    let mut store = crate::store::SqliteStore::new(&conf.data_path()?).await?;
+    let plaid = default_plaid_client(&conf);
 
-    let links: Vec<Link> = state
-        .links()
-        .into_iter()
-        .filter(|link| link.env == conf.config().plaid.env)
-        .collect();
+    let links: Vec<Link> = store.links().await?;
 
     let mut balances_by_type = HashMap::new();
     let mut futures = vec![];

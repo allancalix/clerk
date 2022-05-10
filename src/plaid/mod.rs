@@ -1,11 +1,12 @@
 use std::io::Write;
 
 use anyhow::{anyhow, Result};
-use rplaid::client::{Environment, Plaid};
+use rplaid::client::{Builder, Credentials, Environment, Plaid};
 use rplaid::HttpClient;
 use serde::{Deserialize, Serialize};
 use tabwriter::TabWriter;
 
+use crate::model::ConfigFile;
 use crate::COUNTRY_CODES;
 
 pub struct LinkController<T: HttpClient> {
@@ -136,6 +137,18 @@ impl<T: HttpClient> LinkController<T> {
 
         Ok(String::from_utf8(tw.into_inner()?)?)
     }
+}
+
+pub(crate) fn default_plaid_client(
+    conf: &ConfigFile,
+) -> rplaid::client::Plaid<impl rplaid::HttpClient> {
+    Builder::new()
+        .with_credentials(Credentials {
+            client_id: conf.config().plaid.client_id.clone(),
+            secret: conf.config().plaid.secret.clone(),
+        })
+        .with_env(conf.config().plaid.env.clone())
+        .build()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
