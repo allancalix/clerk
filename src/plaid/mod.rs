@@ -166,8 +166,3 @@ struct Connection {
     institution: rplaid::model::Institution,
     accounts: Vec<rplaid::model::Account>,
 }
-
-#[cfg(test)]
-mod tests {
-    fn its_ok() {}
-}
