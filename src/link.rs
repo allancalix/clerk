@@ -74,10 +74,8 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
     });
 
     let router = server.start();
-    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 4545));
-    let server = axum::Server::bind(&addr)
-        .serve(router.into_make_service())
-        .with_graceful_shutdown(shutdown_signal(rx));
+    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 0));
+    let server = axum::Server::bind(&addr).serve(router.into_make_service());
 
     let state = State {
         user_id: "test-user".to_string(),
@@ -86,18 +84,20 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
     match mode {
         LinkMode::Create => println!(
             "Visit http://{}/link?state={} to link a new account.",
-            addr,
+            server.local_addr(),
             state.to_opaque()?
         ),
         LinkMode::Update(s) => println!(
             "Visit http://{}/link?mode=update&token={}&state={} to link a new account.",
-            addr,
+            server.local_addr(),
             s,
             state.to_opaque()?
         ),
     };
 
-    server.await.expect("failed to start Plaid link server");
+    server
+        .with_graceful_shutdown(shutdown_signal(rx))
+        .await.expect("failed to start Plaid link server");
 
     Ok(())
 }
