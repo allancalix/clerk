@@ -2,12 +2,11 @@ use anyhow::Result;
 use clap::ArgMatches;
 use crossbeam_channel::{bounded, Receiver};
 use plaid_link::{LinkMode, State};
-use rplaid::client::Environment;
 use tokio::signal;
 use tokio::time::{sleep_until, Duration, Instant};
 
 use crate::model::ConfigFile;
-use crate::plaid::{Link, LinkStatus, default_plaid_client};
+use crate::plaid::{default_plaid_client, Link, LinkController, LinkStatus};
 use crate::store;
 
 async fn shutdown_signal(rx: Receiver<()>) {
@@ -65,7 +64,7 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
                 access_token: token.access_token,
                 item_id: token.item_id,
                 state: LinkStatus::Active,
-                env: Environment::Sandbox,
+                env: conf.config().plaid.env.clone(),
             })
             .await
             .unwrap();
@@ -97,7 +96,8 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
 
     server
         .with_graceful_shutdown(shutdown_signal(rx))
-        .await.expect("failed to start Plaid link server");
+        .await
+        .expect("failed to start Plaid link server");
 
     Ok(())
 }
@@ -115,9 +115,14 @@ async fn remove(conf: ConfigFile, item_id: &str) -> Result<()> {
 async fn status(conf: ConfigFile) -> Result<()> {
     let mut store = store::SqliteStore::new(&conf.data_path()?).await?;
 
-    let link_controller =
-        crate::plaid::LinkController::new(default_plaid_client(&conf), store.links().await?)
-            .await?;
+    let links = store
+        .links()
+        .await?
+        .into_iter()
+        .filter(|e| e.env == conf.config().plaid.env)
+        .collect();
+
+    let link_controller = LinkController::new(default_plaid_client(&conf), links).await?;
 
     println!("{}", link_controller.display_connections_table()?);
 

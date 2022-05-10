@@ -58,7 +58,12 @@ async fn pull(start: &str, end: &str, conf: ConfigFile) -> Result<()> {
     let mut store = crate::store::SqliteStore::new(&conf.data_path()?).await?;
     let plaid = default_plaid_client(&conf);
     println!("{:?}", store.links().await?);
-    let links: Vec<Link> = store.links().await?;
+    let links: Vec<Link> = store
+        .links()
+        .await?
+        .into_iter()
+        .filter(|e| e.env == conf.config().plaid.env)
+        .collect();
 
     let start_date = NaiveDate::parse_from_str(start, "%Y-%m-%d")?;
     let end_date = NaiveDate::parse_from_str(end, "%Y-%m-%d")?;
@@ -98,7 +103,14 @@ async fn print_ledger(start: Option<&str>, end: Option<&str>, conf: ConfigFile) 
     let plaid = default_plaid_client(&conf);
 
     let mut account_ids = HashSet::new();
-    for link in store.links().await? {
+
+    let links: Vec<Link> = store
+        .links()
+        .await?
+        .into_iter()
+        .filter(|e| e.env == conf.config().plaid.env)
+        .collect();
+    for link in links {
         let accounts = plaid.accounts(&link.access_token).await?;
         for account in accounts {
             account_ids.insert(account.account_id);

@@ -45,7 +45,7 @@ impl SqliteStore {
                 item_id: row.try_get("item_id")?,
                 alias: row.try_get("alias")?,
                 access_token: row.try_get("access_token")?,
-                env: Environment::Development,
+                env: from_enum(row.try_get("environment")?)?,
                 state: crate::plaid::LinkStatus::Active,
             });
         }
@@ -54,12 +54,16 @@ impl SqliteStore {
     }
 
     pub async fn save_link(&mut self, link: &Link) -> Result<()> {
+        println!(
+            "Link Environment: {}",
+            serde_json::to_string(&link.env)?.to_uppercase()
+        );
         sqlx::query("INSERT INTO plaid_links (item_id, alias, access_token, link_state, environment) VALUES ($1, $2, $3, $4, $5)")
             .bind(&link.item_id)
             .bind(&link.alias)
             .bind(&link.access_token)
             .bind("ACTIVE".to_string())
-            .bind("DEVELOPMENT".to_string())
+            .bind(to_enum(&link.env))
             .execute(&mut self.conn.acquire().await?).await?;
 
         Ok(())
@@ -74,7 +78,7 @@ impl SqliteStore {
             item_id: row.try_get("item_id")?,
             alias: row.try_get("alias")?,
             access_token: row.try_get("access_token")?,
-            env: Environment::Development,
+            env: from_enum(row.try_get("environment")?)?,
             state: crate::plaid::LinkStatus::Active,
         })
     }
@@ -106,6 +110,24 @@ impl SqliteStore {
         }
 
         Ok(txs)
+    }
+}
+
+fn to_enum(env: &Environment) -> String {
+    match env {
+        &Environment::Sandbox => "SANDBOX".into(),
+        &Environment::Development => "DEVELOPMENT".into(),
+        &Environment::Production => "PRODUCTION".into(),
+        &Environment::Custom(_) => "CUSTOM".into(),
+    }
+}
+
+fn from_enum(env: &str) -> Result<Environment> {
+    match env {
+        "SANDBOX" => Ok(Environment::Sandbox),
+        "DEVELOPMENT" => Ok(Environment::Development),
+        "PRODUCTION" => Ok(Environment::Production),
+        s => Err(anyhow::anyhow!("unknown environment {}", s)),
     }
 }
 
