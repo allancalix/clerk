@@ -4,6 +4,7 @@ use crossbeam_channel::{bounded, Receiver};
 use plaid_link::{LinkMode, State};
 use tokio::signal;
 use tokio::time::{sleep_until, Duration, Instant};
+use tracing::info;
 
 use crate::model::ConfigFile;
 use crate::plaid::{default_plaid_client, Link, LinkController, LinkStatus};
@@ -55,19 +56,36 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
 
     let mut listener = server.on_exchange();
     let mut store = store::SqliteStore::new(&conf.data_path()?).await?;
+
+    let mode = std::sync::Arc::new(mode);
+    let m = mode.clone();
     tokio::spawn(async move {
         let token = listener.recv().await.unwrap();
 
-        store
-            .save_link(&Link {
-                alias: "test".to_string(),
-                access_token: token.access_token,
-                item_id: token.item_id,
-                state: LinkStatus::Active,
-                env: conf.config().plaid.env.clone(),
-            })
-            .await
-            .unwrap();
+        match m.as_ref() {
+            plaid_link::LinkMode::Update(_) => {
+                store.update_link(&Link {
+                    alias: "test".to_string(),
+                    access_token: token.access_token,
+                    item_id: token.item_id,
+                    state: LinkStatus::Active,
+                    env: conf.config().plaid.env.clone(),
+                }).await.unwrap();
+            }
+            _ => {
+                store
+                    .save_link(&Link {
+                        alias: "test".to_string(),
+                        access_token: token.access_token,
+                        item_id: token.item_id,
+                        state: LinkStatus::Active,
+                        env: conf.config().plaid.env.clone(),
+                    })
+                    .await
+                    .unwrap();
+
+            }
+        }
 
         tx.send(()).unwrap();
     });
@@ -80,7 +98,7 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
         user_id: "test-user".to_string(),
         context: None,
     };
-    match mode {
+    match mode.as_ref() {
         LinkMode::Create => println!(
             "Visit http://{}/link?state={} to link a new account.",
             server.local_addr(),
@@ -114,14 +132,32 @@ async fn remove(conf: ConfigFile, item_id: &str) -> Result<()> {
 
 async fn status(conf: ConfigFile) -> Result<()> {
     let mut store = store::SqliteStore::new(&conf.data_path()?).await?;
+    let plaid = default_plaid_client(&conf);
 
-    let links = store
+    let mut links: Vec<Link> = store
         .links()
         .await?
         .into_iter()
         .filter(|e| e.env == conf.config().plaid.env)
         .collect();
 
+    for link in &mut links {
+        let item = plaid.item(&link.access_token).await?;
+
+        if let Some(e) = item.error {
+            if let Some("ITEM_LOGIN_REQUIRED") = &e.error_code.as_ref().map(|e| e.as_str()) {
+                info!("Link: {} failed with status {:?}", link.item_id, e);
+
+                link.state = LinkStatus::Degraded(e.error_message.unwrap());
+
+                store.update_link(&link).await?;
+
+                continue;
+            }
+
+            return Err(anyhow::anyhow!(e));
+        }
+    }
     let link_controller = LinkController::new(default_plaid_client(&conf), links).await?;
 
     println!("{}", link_controller.display_connections_table()?);

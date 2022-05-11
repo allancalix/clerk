@@ -43,7 +43,11 @@ impl LinkController {
                     link.item_id
                 )),
             };
-            let accounts = client.accounts(&link.access_token).await?;
+
+            let accounts = match link.state {
+                LinkStatus::Active => client.accounts(&link.access_token).await?,
+                _ => vec![],
+            };
 
             connections.push(Connection {
                 canonical,

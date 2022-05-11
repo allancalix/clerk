@@ -4,7 +4,7 @@ use rplaid::{client::Environment, model::Transaction};
 use sqlx::{Error as SqlxError, Row};
 use thiserror::Error;
 
-use crate::plaid::Link;
+use crate::plaid::{Link, LinkStatus};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -50,7 +50,7 @@ impl SqliteStore {
     pub async fn update_link(&mut self, link: &Link) -> Result<()> {
         sqlx::query("UPDATE plaid_links SET access_token = $1, link_state = $2, alias = $3 WHERE item_id = $4")
             .bind(&link.access_token)
-            .bind("REQUIRES_VERIFICATION".to_string())
+            .bind(to_status_enum(&link.state))
             .bind(&link.alias)
             .bind(&link.item_id)
             .execute(&mut self.conn.acquire().await?).await?;
@@ -72,7 +72,7 @@ impl SqliteStore {
                 alias: row.try_get("alias")?,
                 access_token: row.try_get("access_token")?,
                 env: from_enum(row.try_get("environment")?)?,
-                state: crate::plaid::LinkStatus::Active,
+                state: from_status_enum(row.try_get("link_state")?)?,
             });
         }
 
@@ -84,7 +84,7 @@ impl SqliteStore {
             .bind(&link.item_id)
             .bind(&link.alias)
             .bind(&link.access_token)
-            .bind("ACTIVE".to_string())
+            .bind(to_status_enum(&link.state))
             .bind(to_enum(&link.env))
             .execute(&mut self.conn.acquire().await?).await?;
 
@@ -145,6 +145,21 @@ impl SqliteStore {
         }
 
         Ok(txs)
+    }
+}
+
+fn to_status_enum(status: &LinkStatus) -> String {
+    match status {
+        &LinkStatus::Degraded(_) => "REQUIRES_VERIFICATION".into(),
+        &LinkStatus::Active => "ACTIVE".into(),
+    }
+}
+
+fn from_status_enum(status: &str) -> anyhow::Result<LinkStatus> {
+    match status {
+        "ACTIVE" => Ok(LinkStatus::Active),
+        "REQUIRES_VERIFICATION" => Ok(LinkStatus::Degraded("requires verification".to_string())),
+        s => Err(anyhow::anyhow!("unknown status {}", s)),
     }
 }
 
