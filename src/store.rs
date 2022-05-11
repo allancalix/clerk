@@ -1,10 +1,36 @@
 use std::sync::Arc;
 
-use anyhow::Result;
 use rplaid::{client::Environment, model::Transaction};
-use sqlx::Row;
+use sqlx::{Error as SqlxError, Row};
+use thiserror::Error;
 
 use crate::plaid::Link;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("conflicting data already exists")]
+    AlreadyExists,
+    #[error(transparent)]
+    ParsingError(#[from] serde_json::Error),
+    #[error(transparent)]
+    StartupError(#[from] sqlx::migrate::MigrateError),
+    #[error(transparent)]
+    Database(#[from] SqlxError),
+    #[error(transparent)]
+    Unknown(#[from] anyhow::Error),
+}
+
+impl PartialEq for Error {
+    fn eq(&self, other: &Error) -> bool {
+        self.to_string() == other.to_string()
+    }
+
+    fn ne(&self, other: &Error) -> bool {
+        self.to_string() != other.to_string()
+    }
+}
+
+type Result<T> = ::std::result::Result<T, Error>;
 
 pub struct SqliteStore {
     conn: Arc<sqlx::pool::Pool<sqlx::sqlite::Sqlite>>,
@@ -54,10 +80,6 @@ impl SqliteStore {
     }
 
     pub async fn save_link(&mut self, link: &Link) -> Result<()> {
-        println!(
-            "Link Environment: {}",
-            serde_json::to_string(&link.env)?.to_uppercase()
-        );
         sqlx::query("INSERT INTO plaid_links (item_id, alias, access_token, link_state, environment) VALUES ($1, $2, $3, $4, $5)")
             .bind(&link.item_id)
             .bind(&link.alias)
@@ -86,16 +108,29 @@ impl SqliteStore {
     pub async fn save_tx(&mut self, item_id: &str, tx: &Transaction) -> Result<()> {
         let json = serde_json::to_string(&tx)?;
 
-        sqlx::query(
+        let result = sqlx::query(
             "INSERT INTO transactions (item_id, transaction_id, payload) values($1, $2, $3)",
         )
         .bind(item_id)
         .bind(&tx.transaction_id)
         .bind(json.as_bytes())
         .execute(&mut self.conn.acquire().await?)
-        .await?;
+        .await;
 
-        Ok(())
+        match result {
+            Ok(_) => Ok(()),
+            Err(e) => match e {
+                SqlxError::Database(e) => {
+                    // Uniqueness check fails.
+                    if e.code() == Some(std::borrow::Cow::Borrowed("1555")) {
+                        return Err(Error::AlreadyExists);
+                    }
+
+                    Err(Error::from(sqlx::Error::Database(e)))
+                }
+                _ => Err(Error::from(e)),
+            },
+        }
     }
 
     pub async fn transactions(&mut self) -> Result<Vec<Transaction>> {
@@ -122,7 +157,7 @@ fn to_enum(env: &Environment) -> String {
     }
 }
 
-fn from_enum(env: &str) -> Result<Environment> {
+fn from_enum(env: &str) -> anyhow::Result<Environment> {
     match env {
         "SANDBOX" => Ok(Environment::Sandbox),
         "DEVELOPMENT" => Ok(Environment::Development),
@@ -233,5 +268,54 @@ mod tests {
         let result = store.save_tx(&link.item_id, &transaction).await;
 
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn saving_error_with_conflicting_key_returns_error() {
+        let mut store = test_store().await;
+        let link = Link {
+            alias: "test_link".to_string(),
+            access_token: "1234".to_string(),
+            item_id: "plaid-id-123".to_string(),
+            state: crate::plaid::LinkStatus::Active,
+            env: Environment::Development,
+        };
+        store.save_link(&link).await.unwrap();
+
+        let transaction = Transaction {
+            transaction_type: "".to_string(),
+            pending_transaction_id: None,
+            category_id: None,
+            category: None,
+            location: None,
+            payment_meta: None,
+            account_owner: None,
+            name: "".to_string(),
+            original_description: None,
+            account_id: "".to_string(),
+            amount: 33.25,
+            iso_currency_code: None,
+            unofficial_currency_code: None,
+            date: "2022-05-01".to_string(),
+            pending: false,
+            transaction_id: "1234-test".to_string(),
+            payment_channel: "".to_string(),
+            merchant_name: None,
+            authorized_date: None,
+            authorized_datetime: None,
+            datetime: None,
+            check_number: None,
+            transaction_code: None,
+        };
+
+        let result = store.save_tx(&link.item_id, &transaction).await;
+
+        assert!(result.is_ok());
+
+        let result = store
+            .save_tx(&link.item_id, &transaction)
+            .await
+            .unwrap_err();
+        assert!(matches!(result, Error::AlreadyExists));
     }
 }

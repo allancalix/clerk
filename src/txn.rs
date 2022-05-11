@@ -76,7 +76,13 @@ async fn pull(start: &str, end: &str, conf: ConfigFile) -> Result<()> {
 
         println!("Pulling transactions for item {}", &link.item_id);
         for tx in upstream.pull(start_date, end_date).await? {
-            store.save_tx(&link.item_id, &tx).await?;
+            let result = store.save_tx(&link.item_id, &tx).await;
+
+            if result.contains_err(&crate::store::Error::AlreadyExists) {
+                continue;
+            }
+
+            result?
         }
     }
 

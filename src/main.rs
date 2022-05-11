@@ -1,3 +1,5 @@
+#![feature(result_contains_err)]
+
 mod accounts;
 mod init;
 mod link;

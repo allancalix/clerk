@@ -543,6 +543,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "tabwriter",
+ "thiserror",
  "tokio",
  "toml",
  "url",
