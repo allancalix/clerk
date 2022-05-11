@@ -58,6 +58,22 @@ impl SqliteStore {
         Ok(())
     }
 
+    pub async fn link(&mut self, id: &str) -> Result<Link> {
+        let row = sqlx::query(
+            "SELECT item_id, alias, access_token, link_state, environment FROM plaid_links WHERE item_id = $1")
+            .bind(id)
+            .fetch_one(&mut self.conn.acquire().await?)
+            .await?;
+
+        Ok(Link {
+            item_id: row.try_get("item_id")?,
+            alias: row.try_get("alias")?,
+            access_token: row.try_get("access_token")?,
+            env: from_enum(row.try_get("environment")?)?,
+            state: from_status_enum(row.try_get("link_state")?)?,
+        })
+    }
+
     pub async fn links(&mut self) -> Result<Vec<Link>> {
         let rows = sqlx::query(
             "SELECT item_id, alias, access_token, link_state, environment FROM plaid_links",

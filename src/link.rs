@@ -56,6 +56,10 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
 
     let mut listener = server.on_exchange();
     let mut store = store::SqliteStore::new(&conf.data_path()?).await?;
+    let link = match &mode {
+        plaid_link::LinkMode::Update(s) => Some(store.link(s).await?),
+        plaid_link::LinkMode::Create => None,
+    };
 
     let mode = std::sync::Arc::new(mode);
     let m = mode.clone();
@@ -64,13 +68,16 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
 
         match m.as_ref() {
             plaid_link::LinkMode::Update(_) => {
-                store.update_link(&Link {
-                    alias: "test".to_string(),
-                    access_token: token.access_token,
-                    item_id: token.item_id,
-                    state: LinkStatus::Active,
-                    env: conf.config().plaid.env.clone(),
-                }).await.unwrap();
+                store
+                    .update_link(&Link {
+                        alias: "test".to_string(),
+                        access_token: token.access_token,
+                        item_id: token.item_id,
+                        state: LinkStatus::Active,
+                        env: conf.config().plaid.env.clone(),
+                    })
+                    .await
+                    .unwrap();
             }
             _ => {
                 store
@@ -83,7 +90,6 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
                     })
                     .await
                     .unwrap();
-
             }
         }
 
@@ -104,12 +110,15 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
             server.local_addr(),
             state.to_opaque()?
         ),
-        LinkMode::Update(s) => println!(
-            "Visit http://{}/link?mode=update&token={}&state={} to link a new account.",
-            server.local_addr(),
-            s,
-            state.to_opaque()?
-        ),
+        LinkMode::Update(_) => {
+            println!(
+                "Visit http://{}/link?mode=update&token={}&state={} to link a new account.",
+                server.local_addr(),
+                link.expect("must have existing link when using update")
+                    .access_token,
+                state.to_opaque()?
+            )
+        }
     };
 
     server
