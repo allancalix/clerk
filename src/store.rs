@@ -232,7 +232,12 @@ mod tests {
             env: Environment::Development,
         };
         store.save_link(&link).await.unwrap();
-        store.save_link(&link).await.unwrap();
+
+        let second_link = Link {
+            item_id: "plaid-id-456".to_string(),
+            ..link
+        };
+        store.save_link(&second_link).await.unwrap();
 
         let links = store.links().await.unwrap();
 

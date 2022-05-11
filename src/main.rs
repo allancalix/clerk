@@ -40,6 +40,7 @@ async fn run() -> Result<()> {
         .subcommand(Command::new("init").about("Initialize CLI for use."))
         .subcommand(Command::new("link")
             .about("Links a new account for tracking.")
+            .arg(arg!(name: -n --name [ALIAS] "An alias to easily identify what accounts the link belongs to."))
             .arg(arg!(update: -u --update [ITEM_ID] "Update a link for an existing account link, must pass the access token for the expired link."))
             .subcommand(Command::new("status").about("Displays all links and their current status."))
             .subcommand(Command::new("delete")

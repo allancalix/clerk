@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
 use clap::ArgMatches;
 use crossbeam_channel::{bounded, Receiver};
@@ -9,6 +11,8 @@ use tracing::info;
 use crate::model::ConfigFile;
 use crate::plaid::{default_plaid_client, Link, LinkController, LinkStatus};
 use crate::store;
+
+const LINK_NAME_KEY: &str = "link_name";
 
 async fn shutdown_signal(rx: Receiver<()>) {
     let ctrl_c = async {
@@ -48,7 +52,7 @@ async fn shutdown_signal(rx: Receiver<()>) {
     println!("signal received, starting graceful shutdown");
 }
 
-async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
+async fn server(conf: ConfigFile, mode: plaid_link::LinkMode, name: &str) -> Result<()> {
     let plaid = default_plaid_client(&conf);
 
     let (tx, rx) = bounded(1);
@@ -65,12 +69,16 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
     let m = mode.clone();
     tokio::spawn(async move {
         let token = listener.recv().await.unwrap();
+        let name = match token.state.context {
+            Some(map) => map.get(LINK_NAME_KEY).unwrap().clone(),
+            None => "".to_string(),
+        };
 
         match m.as_ref() {
             plaid_link::LinkMode::Update(_) => {
                 store
                     .update_link(&Link {
-                        alias: "test".to_string(),
+                        alias: name,
                         access_token: token.access_token,
                         item_id: token.item_id,
                         state: LinkStatus::Active,
@@ -82,7 +90,7 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
             _ => {
                 store
                     .save_link(&Link {
-                        alias: "test".to_string(),
+                        alias: name,
                         access_token: token.access_token,
                         item_id: token.item_id,
                         state: LinkStatus::Active,
@@ -100,9 +108,12 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode) -> Result<()> {
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 0));
     let server = axum::Server::bind(&addr).serve(router.into_make_service());
 
+    let mut context = HashMap::new();
+    context.insert(LINK_NAME_KEY.to_string(), name.to_string());
+
     let state = State {
         user_id: "test-user".to_string(),
-        context: None,
+        context: Some(context),
     };
     match mode.as_ref() {
         LinkMode::Create => println!(
@@ -184,9 +195,14 @@ pub(crate) async fn run(matches: &ArgMatches, conf: ConfigFile) -> Result<()> {
             let item_id = remove_matches.value_of("item_id").unwrap();
             remove(conf, item_id).await
         }
-        _ => match matches.value_of("update") {
-            Some(token) => server(conf, plaid_link::LinkMode::Update(token.to_string())).await,
-            None => server(conf, plaid_link::LinkMode::Create).await,
-        },
+        _ => {
+            let name = matches.value_of("name").unwrap_or("test");
+            match matches.value_of("update") {
+                Some(token) => {
+                    server(conf, plaid_link::LinkMode::Update(token.to_string()), name).await
+                }
+                None => server(conf, plaid_link::LinkMode::Create, name).await,
+            }
+        }
     }
 }
