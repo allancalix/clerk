@@ -15,7 +15,7 @@ extern crate ketos;
 extern crate ketos_derive;
 
 use anyhow::Result;
-use clap::clap_app;
+use clap::{arg, Command};
 use tracing_subscriber::{
     filter::LevelFilter, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter,
 };
@@ -27,57 +27,39 @@ static CLIENT_NAME: &str = "clerk";
 static COUNTRY_CODES: [&str; 1] = ["US"];
 
 async fn run() -> Result<()> {
-    let app = clap_app!(clerk =>
-        (setting: clap::AppSettings::SubcommandRequired)
-        (version: "0.1.0")
-        (author: "Allan Calix <allan@acx.dev>")
-        (about: "The clerk utility pulls data from an upstream source, such \
+    let app = Command::new(CLIENT_NAME)
+        .about("The clerk utility pulls data from an upstream source, such \
          as Plaid APIs, and generates Ledger records from the transactions.")
-        (@arg CONFIG: -c --config [FILE] "Sets a custom config file")
-        (@arg verbose: -v --verbose [Boolean] "Sets the level of verbosity")
-        (@arg env: -e --env [String] "Selects the environment to run against.")
-        (@subcommand init =>
-            (about: "Initialize CLI for use.")
-        )
-        (@subcommand link =>
-            (about: "Links a new account for tracking.")
-            (@arg update: -u --update [ACCESS_TOKEN] "Update a link for an existing \
-             account link, must pass the access token for the expired link.")
-            (@subcommand status =>
-                (about: "Displays all links and their current status.")
-            )
-            (@subcommand delete =>
-                (about: "Deletes a Plaid account link.")
-                (@arg item_id: <ITEM_ID> "The item ID of the link to delete.")
-            )
-        )
-        (@subcommand accounts =>
-            (about: "Prints tracked accounts to stdout.")
-            (@subcommand balance =>
-                (about: "Prints balances of all accounts. This command fetches
-                 current data and may take some time to complete.")
-            )
-        )
-        (@subcommand transactions =>
-            (setting: clap::AppSettings::SubcommandRequired)
-            (about: "pulls a set of transactions to the store")
-            (@subcommand sync =>
-                (about: "Pulls transactions from the given range, defaults to \
-                 a weeks worth of transactions going back from today.")
-                (@arg begin: --begin [DATE] "The first day of transactions to \
-                 pull, defaults to a week before today. Start date is inclusive.")
-                (@arg until: --until [DATE] "The last day of transactions to \
-                 pull, defaults to today. End date is inclusive.")
-            )
-            (@subcommand print =>
-                (about: "Prints all synced transactions as Ledger records.")
-                (@arg begin: --begin [DATE] "The first day of Ledger records to \
-                 generate.")
-                (@arg until: --until [DATE] "The last day of Ledger records to \
-                 generate.")
-            )
-        )
-    );
+        .version("0.1.0")
+        .author("Allan Calix <allan@acx.dev>")
+        .subcommand_required(true)
+        .allow_external_subcommands(false)
+        .arg(arg!(CONFIG: -c --config [FILE] "Sets a custom config file"))
+        .arg(arg!(verbose: -v --verbose [Boolean] "Sets the level of verbosity"))
+        .arg(arg!(env: -e --env [String] "Selects the environment to run against."))
+        .subcommand(Command::new("init").about("Initialize CLI for use."))
+        .subcommand(Command::new("link")
+            .about("Links a new account for tracking.")
+            .arg(arg!(update: -u --update [ACCESS_TOKEN] "Update a link for an existing account link, must pass the access token for the expired link."))
+            .subcommand(Command::new("status").about("Displays all links and their current status."))
+            .subcommand(Command::new("delete")
+                .about("Deletes a Plaid account link.")
+                .arg(arg!(item_id: <ITEM_ID> "The item ID of the link to delete."))))
+        .subcommand(Command::new("accounts")
+            .about("Prints tracked accounts to stdout.")
+            .subcommand(Command::new("balance")
+                .about("Prints balances of all accounts. This command fetches current data and may take some time to complete.")))
+        .subcommand(Command::new("transactions")
+            .subcommand_required(true)
+            .about("pulls a set of transactions to the store")
+            .subcommand(Command::new("sync")
+                .about("Pulls transactions from the given range, defaults to a weeks worth of transactions going back from today.")
+                .arg(arg!(begin: --begin [DATE] "The first day of transactions to pull, defaults to a week before today. Start date is inclusive."))
+                .arg(arg!(until: --until [DATE] "The last day of transactions to pull, defaults to today. End date is inclusive.")))
+            .subcommand(Command::new("print")
+                .about("Prints all synced transactions as Ledger records.")
+                .arg(arg!(begin: --begin [DATE] "The first day of Ledger records to generate."))
+                .arg(arg!(until: --until [DATE] "The last day of Ledger records to generate."))));
 
     if app.clone().get_matches().value_of("verbose") == Some("true") {
         tracing_subscriber::registry()
