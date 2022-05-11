@@ -350,4 +350,25 @@ mod tests {
             .unwrap_err();
         assert!(matches!(result, Error::AlreadyExists));
     }
+
+    #[tokio::test]
+    async fn get_link_by_id() {
+        let mut store = test_store().await;
+        let link = Link {
+            alias: "test_link".to_string(),
+            access_token: "1234".to_string(),
+            item_id: "plaid-id-123".to_string(),
+            state: crate::plaid::LinkStatus::Active,
+            env: Environment::Development,
+        };
+        store.save_link(&link).await.unwrap();
+
+        let fetch_link = store.link(&link.item_id).await.unwrap();
+
+        assert_eq!(&link.alias, &fetch_link.alias);
+        assert_eq!(&link.access_token, &fetch_link.access_token);
+        assert_eq!(&link.item_id, &fetch_link.item_id);
+        assert!(matches!(link.state, crate::plaid::LinkStatus::Active));
+        assert!(matches!(link.env, Environment::Development));
+    }
 }
