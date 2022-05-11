@@ -32,12 +32,8 @@ async fn can_execute_exchange_flow() -> Result<(), Box<dyn std::error::Error>> {
         .await
         .unwrap();
 
-    let server = plaid_link::LinkServer {
-        client: plaid,
-        on_exchange: move |link| {
-            println!("hello, world!: {:?}", link);
-        },
-    };
+    let server = plaid_link::LinkServer::new(plaid);
+    let recv = server.on_exchange();
 
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 0));
 
@@ -45,6 +41,8 @@ async fn can_execute_exchange_flow() -> Result<(), Box<dyn std::error::Error>> {
     let addr = server.local_addr();
 
     tokio::spawn(async move {
+        // IMPORTANT: Hold a receiver until the test is done to prevent receiver errors.
+        let _recv = recv;
         server.await.unwrap();
     });
 
