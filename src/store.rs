@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use rplaid::{client::Environment, model::Transaction};
-use sqlx::{Error as SqlxError, Row};
+use sqlx::{Error as SqlxError, FromRow, Row};
 use thiserror::Error;
 
 use crate::plaid::{Link, LinkStatus};
@@ -11,9 +11,9 @@ pub enum Error {
     #[error("conflicting data already exists")]
     AlreadyExists,
     #[error(transparent)]
-    ParsingError(#[from] serde_json::Error),
+    Parse(#[from] serde_json::Error),
     #[error(transparent)]
-    StartupError(#[from] sqlx::migrate::MigrateError),
+    Migration(#[from] sqlx::migrate::MigrateError),
     #[error(transparent)]
     Database(#[from] SqlxError),
     #[error(transparent)]
@@ -24,9 +24,22 @@ impl PartialEq for Error {
     fn eq(&self, other: &Error) -> bool {
         self.to_string() == other.to_string()
     }
+}
 
-    fn ne(&self, other: &Error) -> bool {
-        self.to_string() != other.to_string()
+impl<'r, R: sqlx::Row> sqlx::FromRow<'r, R> for Link
+where
+    std::string::String: sqlx::Decode<'r, <R as Row>::Database> + sqlx::Type<<R as Row>::Database>,
+    &'r str: sqlx::Decode<'r, <R as Row>::Database> + sqlx::Type<<R as Row>::Database>,
+    &'static str: sqlx::ColumnIndex<R>,
+{
+    fn from_row(row: &'r R) -> ::std::result::Result<Self, SqlxError> {
+        Ok(Link {
+            item_id: row.try_get("item_id")?,
+            alias: row.try_get("alias")?,
+            access_token: row.try_get("access_token")?,
+            env: from_enum(row.try_get("environment")?).unwrap(),
+            state: from_status_enum(row.try_get("link_state")?).unwrap(),
+        })
     }
 }
 
@@ -35,6 +48,7 @@ type Result<T> = ::std::result::Result<T, Error>;
 pub struct SqliteStore {
     conn: Arc<sqlx::pool::Pool<sqlx::sqlite::Sqlite>>,
 }
+
 impl SqliteStore {
     pub async fn new(uri: &str) -> Result<Self> {
         let pool = sqlx::sqlite::SqlitePoolOptions::new().connect(uri).await?;
@@ -61,17 +75,11 @@ impl SqliteStore {
     pub async fn link(&mut self, id: &str) -> Result<Link> {
         let row = sqlx::query(
             "SELECT item_id, alias, access_token, link_state, environment FROM plaid_links WHERE item_id = $1")
-            .bind(id)
-            .fetch_one(&mut self.conn.acquire().await?)
-            .await?;
+        .bind(id)
+        .fetch_one(&mut self.conn.acquire().await?)
+        .await?;
 
-        Ok(Link {
-            item_id: row.try_get("item_id")?,
-            alias: row.try_get("alias")?,
-            access_token: row.try_get("access_token")?,
-            env: from_enum(row.try_get("environment")?)?,
-            state: from_status_enum(row.try_get("link_state")?)?,
-        })
+        Ok(Link::from_row(&row)?)
     }
 
     pub async fn links(&mut self) -> Result<Vec<Link>> {
@@ -83,13 +91,7 @@ impl SqliteStore {
 
         let mut links = vec![];
         for row in rows {
-            links.push(Link {
-                item_id: row.try_get("item_id")?,
-                alias: row.try_get("alias")?,
-                access_token: row.try_get("access_token")?,
-                env: from_enum(row.try_get("environment")?)?,
-                state: from_status_enum(row.try_get("link_state")?)?,
-            });
+            links.push(Link::from_row(&row)?);
         }
 
         Ok(links)
@@ -112,13 +114,7 @@ impl SqliteStore {
             .bind(id)
             .fetch_one(&mut self.conn.acquire().await?).await?;
 
-        Ok(Link {
-            item_id: row.try_get("item_id")?,
-            alias: row.try_get("alias")?,
-            access_token: row.try_get("access_token")?,
-            env: from_enum(row.try_get("environment")?)?,
-            state: crate::plaid::LinkStatus::Active,
-        })
+        Ok(Link::from_row(&row)?)
     }
 
     pub async fn save_tx(&mut self, item_id: &str, tx: &Transaction) -> Result<()> {
@@ -165,9 +161,9 @@ impl SqliteStore {
 }
 
 fn to_status_enum(status: &LinkStatus) -> String {
-    match status {
-        &LinkStatus::Degraded(_) => "REQUIRES_VERIFICATION".into(),
-        &LinkStatus::Active => "ACTIVE".into(),
+    match *status {
+        LinkStatus::Degraded(_) => "REQUIRES_VERIFICATION".into(),
+        LinkStatus::Active => "ACTIVE".into(),
     }
 }
 
@@ -180,11 +176,11 @@ fn from_status_enum(status: &str) -> anyhow::Result<LinkStatus> {
 }
 
 fn to_enum(env: &Environment) -> String {
-    match env {
-        &Environment::Sandbox => "SANDBOX".into(),
-        &Environment::Development => "DEVELOPMENT".into(),
-        &Environment::Production => "PRODUCTION".into(),
-        &Environment::Custom(_) => "CUSTOM".into(),
+    match *env {
+        Environment::Sandbox => "SANDBOX".into(),
+        Environment::Development => "DEVELOPMENT".into(),
+        Environment::Production => "PRODUCTION".into(),
+        Environment::Custom(_) => "CUSTOM".into(),
     }
 }
 

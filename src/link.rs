@@ -165,12 +165,12 @@ async fn status(conf: ConfigFile) -> Result<()> {
         let item = plaid.item(&link.access_token).await?;
 
         if let Some(e) = item.error {
-            if let Some("ITEM_LOGIN_REQUIRED") = &e.error_code.as_ref().map(|e| e.as_str()) {
+            if let Some("ITEM_LOGIN_REQUIRED") = &e.error_code.as_deref() {
                 info!("Link: {} failed with status {:?}", link.item_id, e);
 
                 link.state = LinkStatus::Degraded(e.error_message.unwrap());
 
-                store.update_link(&link).await?;
+                store.update_link(link).await?;
 
                 continue;
             }

@@ -121,7 +121,7 @@ impl ConfigFile {
         for rule in &self.config().rules {
             let mut path = PathBuf::from(rule);
             if path.is_relative() {
-                path = PathBuf::from(root.clone()).join(rule)
+                path = root.clone().join(rule)
             };
 
             rules.push(path);

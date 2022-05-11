@@ -24,10 +24,6 @@ impl PartialEq<AccountType> for AccountTypeWrapper {
     fn eq(&self, other: &AccountType) -> bool {
         self.0 == *other
     }
-
-    fn ne(&self, other: &AccountType) -> bool {
-        self.0 != *other
-    }
 }
 
 async fn print(conf: ConfigFile) -> Result<()> {
