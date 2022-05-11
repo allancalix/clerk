@@ -16,6 +16,10 @@ extern crate ketos_derive;
 
 use anyhow::Result;
 use clap::clap_app;
+use tracing_subscriber::{
+    filter::LevelFilter, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter,
+};
+use tracing_tree::HierarchicalLayer;
 
 use crate::model::ConfigFile;
 
@@ -30,7 +34,7 @@ async fn run() -> Result<()> {
         (about: "The clerk utility pulls data from an upstream source, such \
          as Plaid APIs, and generates Ledger records from the transactions.")
         (@arg CONFIG: -c --config [FILE] "Sets a custom config file")
-        (@arg verbose: -v --verbose "Sets the level of verbosity")
+        (@arg verbose: -v --verbose [Boolean] "Sets the level of verbosity")
         (@arg env: -e --env [String] "Selects the environment to run against.")
         (@subcommand init =>
             (about: "Initialize CLI for use.")
@@ -74,6 +78,22 @@ async fn run() -> Result<()> {
             )
         )
     );
+
+    if app.clone().get_matches().value_of("verbose") == Some("true") {
+        tracing_subscriber::registry()
+            .with(
+                EnvFilter::builder()
+                    .with_default_directive(LevelFilter::INFO.into())
+                    .from_env_lossy(),
+            )
+            .with(tracing_subscriber::fmt::layer())
+            .with(
+                HierarchicalLayer::new(2)
+                    .with_targets(true)
+                    .with_bracketed_fields(true),
+            )
+            .init();
+    }
 
     match app.clone().get_matches().subcommand() {
         Some(("init", _link_matches)) => {

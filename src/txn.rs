@@ -11,6 +11,7 @@ use rplaid::client::Plaid;
 use rplaid::model::*;
 use rplaid::HttpClient;
 use tabwriter::TabWriter;
+use tracing::info;
 
 use crate::model::ConfigFile;
 use crate::plaid::{default_plaid_client, Link};
@@ -54,10 +55,10 @@ impl<'a, T: HttpClient> TransactionUpstream for PlaidUpstream<'a, T> {
     }
 }
 
+#[tracing::instrument(skip(conf))]
 async fn pull(start: &str, end: &str, conf: ConfigFile) -> Result<()> {
     let mut store = crate::store::SqliteStore::new(&conf.data_path()?).await?;
     let plaid = default_plaid_client(&conf);
-    println!("{:?}", store.links().await?);
     let links: Vec<Link> = store
         .links()
         .await?
@@ -74,11 +75,13 @@ async fn pull(start: &str, end: &str, conf: ConfigFile) -> Result<()> {
             token: link.access_token.clone(),
         };
 
-        println!("Pulling transactions for item {}", &link.item_id);
+        info!("Pulling transactions for item {}.", link.item_id);
         for tx in upstream.pull(start_date, end_date).await? {
             let result = store.save_tx(&link.item_id, &tx).await;
 
             if result.contains_err(&crate::store::Error::AlreadyExists) {
+                info!("Transaction {} already found, skipping.", tx.transaction_id);
+
                 continue;
             }
 
