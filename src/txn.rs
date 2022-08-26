@@ -2,58 +2,15 @@ use std::collections::HashSet;
 use std::io::prelude::*;
 
 use anyhow::Result;
-use axum::async_trait;
 use chrono::prelude::*;
 use clap::ArgMatches;
-use futures_util::pin_mut;
-use futures_util::StreamExt;
-use rplaid::client::Plaid;
-use rplaid::model::*;
-use rplaid::HttpClient;
 use tabwriter::TabWriter;
 use tracing::info;
 
 use crate::model::ConfigFile;
 use crate::plaid::{default_plaid_client, Link};
 use crate::rules::Transformer;
-
-#[async_trait]
-trait TransactionUpstream {
-    async fn pull(&self, start: NaiveDate, end: NaiveDate) -> Result<Vec<Transaction>>;
-}
-
-struct PlaidUpstream<'a, T: HttpClient> {
-    client: &'a Plaid<T>,
-    token: String,
-}
-
-#[async_trait]
-impl<'a, T: HttpClient> TransactionUpstream for PlaidUpstream<'a, T> {
-    async fn pull(&self, start: NaiveDate, end: NaiveDate) -> Result<Vec<Transaction>> {
-        let start = start.format("%Y-%m-%d").to_string();
-        let end = end.format("%Y-%m-%d").to_string();
-
-        let tx_pages = self.client.transactions_iter(GetTransactionsRequest {
-            access_token: self.token.as_str(),
-            start_date: &start,
-            end_date: &end,
-            options: Some(GetTransactionsOptions {
-                count: Some(100),
-                offset: Some(0),
-                account_ids: None,
-                include_original_description: None,
-            }),
-        });
-        pin_mut!(tx_pages);
-
-        let mut tx_list = vec![];
-        while let Some(page) = tx_pages.next().await {
-            tx_list.extend_from_slice(&page?);
-        }
-
-        Ok(tx_list)
-    }
-}
+use crate::upstream::{plaid::Source, AccountSource, TransactionSource};
 
 #[tracing::instrument(skip(conf))]
 async fn pull(start: &str, end: &str, conf: ConfigFile) -> Result<()> {
@@ -70,13 +27,13 @@ async fn pull(start: &str, end: &str, conf: ConfigFile) -> Result<()> {
     let end_date = NaiveDate::parse_from_str(end, "%Y-%m-%d")?;
 
     for link in links {
-        let upstream = PlaidUpstream {
+        let upstream = Source {
             client: &plaid,
             token: link.access_token.clone(),
         };
 
         info!("Pulling transactions for item {}.", link.item_id);
-        for tx in upstream.pull(start_date, end_date).await? {
+        for tx in upstream.transactions(start_date, end_date).await? {
             let result = store.save_tx(&link.item_id, &tx).await;
 
             if result.contains_err(&crate::store::Error::AlreadyExists) {
@@ -110,7 +67,6 @@ async fn print_ledger(start: Option<&str>, end: Option<&str>, conf: ConfigFile) 
     let mut store = crate::store::SqliteStore::new(&conf.data_path()?).await?;
     let rules = Transformer::from_rules(conf.rules())?;
     let plaid = default_plaid_client(&conf);
-
     let mut account_ids = HashSet::new();
 
     let links: Vec<Link> = store
@@ -120,10 +76,8 @@ async fn print_ledger(start: Option<&str>, end: Option<&str>, conf: ConfigFile) 
         .filter(|e| e.env == conf.config().plaid.env)
         .collect();
     for link in links {
-        let accounts = plaid.accounts(&link.access_token).await?;
-        for account in accounts {
-            account_ids.insert(account.account_id);
-        }
+        let upstream = Source::new(&plaid, link.access_token.clone());
+        account_ids.extend(upstream.accounts().await?.into_iter().map(|a| a.account_id));
     }
 
     let txs: Vec<crate::rules::TransactionValue> = store

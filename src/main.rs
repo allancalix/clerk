@@ -8,6 +8,7 @@ mod plaid;
 mod rules;
 mod store;
 mod txn;
+mod upstream;
 
 #[macro_use]
 extern crate ketos;
