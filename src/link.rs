@@ -144,8 +144,9 @@ async fn remove(conf: ConfigFile, item_id: &str) -> Result<()> {
     let mut store = store::SqliteStore::new(&conf.data_path()).await?;
     let plaid = default_plaid_client(&conf);
 
-    let link = store.delete_link(item_id).await?;
+    let link = store.link(item_id).await?;
     plaid.item_del(&link.access_token).await?;
+    store.delete_link(item_id).await?;
 
     Ok(())
 }
