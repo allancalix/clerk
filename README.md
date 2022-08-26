@@ -169,3 +169,13 @@ machine). There may be - or definitely are - rough edges as pre-release software
 [Plaid]: https://plaid.com/docs/api/ "Plaid Docs"
 [Plaid Link]: https://plaid.com/docs/link/ "Plaid Link Documentation"
 [Standard Directories]: https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html#//apple_ref/doc/uid/TP40010672-CH2-SW6
+
+## Troubleshooting
+### I'm using `clerk` for the first time and getting data file doesn't exist errors.
+If a database file doesn't already exist one won't be created automatically to
+prevent saving data in an unexpected place. You can either initialize and provide
+your own db file using sqlite or add `?mode=rwc` to your `db_file` path.
+
+```toml
+db_file = "./clerk/clerk.db?mode=rwc"
+```
