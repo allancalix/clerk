@@ -106,11 +106,11 @@ impl ConfigFile {
         &self.conf
     }
 
-    pub(crate) fn data_path(&self) -> Result<String> {
-        match &self.conf.db_file {
-            Some(f) => Ok(f.clone()),
-            None => Ok(default_data_path()?),
-        }
+    pub(crate) fn data_path(&self) -> String {
+        self.conf.db_file
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| default_data_path())
     }
 
     pub(crate) fn rules(&self) -> Vec<PathBuf> {
@@ -135,11 +135,11 @@ impl ConfigFile {
     }
 }
 
-fn default_data_path() -> Result<String> {
-    Ok(dirs::data_dir()
-        .unwrap_or(std::env::current_dir()?)
+fn default_data_path() -> String {
+    dirs::data_dir()
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| std::env::temp_dir()))
         .join(CLIENT_NAME)
         .join(format!("{}.db", CLIENT_NAME))
         .display()
-        .to_string())
+        .to_string()
 }

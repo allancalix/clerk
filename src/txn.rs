@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::io::prelude::*;
 
 use anyhow::Result;
@@ -10,27 +9,19 @@ use tracing::info;
 use crate::model::ConfigFile;
 use crate::plaid::{default_plaid_client, Link};
 use crate::rules::Transformer;
-use crate::upstream::{plaid::Source, AccountSource, TransactionSource};
+use crate::upstream::{plaid::Source, TransactionSource};
 
 #[tracing::instrument(skip(conf))]
 async fn pull(start: &str, end: &str, conf: ConfigFile) -> Result<()> {
-    let mut store = crate::store::SqliteStore::new(&conf.data_path()?).await?;
+    let mut store = crate::store::SqliteStore::new(&conf.data_path()).await?;
     let plaid = default_plaid_client(&conf);
-    let links: Vec<Link> = store
-        .links()
-        .await?
-        .into_iter()
-        .filter(|e| e.env == conf.config().plaid.env)
-        .collect();
+    let links: Vec<Link> = store.links().await?;
 
     let start_date = NaiveDate::parse_from_str(start, "%Y-%m-%d")?;
     let end_date = NaiveDate::parse_from_str(end, "%Y-%m-%d")?;
 
     for link in links {
-        let upstream = Source {
-            client: &plaid,
-            token: link.access_token.clone(),
-        };
+        let upstream = Source::new(&plaid, link.access_token.clone());
 
         info!("Pulling transactions for item {}.", link.item_id);
         for tx in upstream.transactions(start_date, end_date).await? {
@@ -64,27 +55,13 @@ fn print_table(txs: &[crate::rules::TransactionValue]) -> Result<String> {
 }
 
 async fn print_ledger(start: Option<&str>, end: Option<&str>, conf: ConfigFile) -> Result<()> {
-    let mut store = crate::store::SqliteStore::new(&conf.data_path()?).await?;
+    let mut store = crate::store::SqliteStore::new(&conf.data_path()).await?;
     let rules = Transformer::from_rules(conf.rules())?;
-    let plaid = default_plaid_client(&conf);
-    let mut account_ids = HashSet::new();
-
-    let links: Vec<Link> = store
-        .links()
-        .await?
-        .into_iter()
-        .filter(|e| e.env == conf.config().plaid.env)
-        .collect();
-    for link in links {
-        let upstream = Source::new(&plaid, link.access_token.clone());
-        account_ids.extend(upstream.accounts().await?.into_iter().map(|a| a.account_id));
-    }
 
     let txs: Vec<crate::rules::TransactionValue> = store
         .transactions()
         .await?
         .iter()
-        .filter(|t| account_ids.contains(&t.account_id))
         .filter(|t| {
             let date = NaiveDate::parse_from_str(&t.date, "%Y-%m-%d").unwrap();
             if let Some(start_date) = start {
