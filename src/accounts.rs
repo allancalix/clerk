@@ -106,7 +106,7 @@ async fn balances(conf: ConfigFile) -> Result<()> {
 
 pub(crate) async fn run(matches: &ArgMatches, conf: ConfigFile) -> Result<()> {
     match matches.subcommand() {
-        Some(("balance", _link_matches)) => balances(conf).await,
+        Some(("balances", _link_matches)) => balances(conf).await,
         None => print(conf).await,
         _ => unreachable!(),
     }
