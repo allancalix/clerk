@@ -73,7 +73,7 @@ async fn balances(conf: ConfigFile) -> Result<()> {
         .filter(|(t, _)| *t == &AccountType::Depository)
     {
         for b in v {
-            let currency_code = b.balances.iso_current_code
+            let currency_code = b.balances.iso_currency_code
                 .as_ref()
                 .map(|c| c.as_str())
                 .unwrap_or("USD");
@@ -94,7 +94,7 @@ async fn balances(conf: ConfigFile) -> Result<()> {
         .filter(|(t, _)| *t == &AccountType::Credit)
     {
         for b in v {
-            let currency_code = b.balances.iso_current_code
+            let currency_code = b.balances.iso_currency_code
                 .as_ref()
                 .map(|c| c.as_str())
                 .unwrap_or("USD");
