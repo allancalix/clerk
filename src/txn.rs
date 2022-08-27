@@ -6,6 +6,7 @@ use clap::ArgMatches;
 use tabwriter::TabWriter;
 use tracing::info;
 
+use crate::core::Transaction;
 use crate::model::ConfigFile;
 use crate::plaid::{default_plaid_client, Link};
 use crate::rules::Transformer;
@@ -25,11 +26,11 @@ async fn pull(start: &str, end: &str, conf: ConfigFile) -> Result<()> {
 
         info!("Pulling transactions for item {}.", link.item_id);
         for tx in upstream.transactions(start_date, end_date).await? {
-            let result = store.save_tx(&link.item_id, &tx).await;
+            let result = store
+                .save_tx(&link.item_id, &tx.source.transaction_id, &tx)
+                .await;
 
             if result.contains_err(&crate::store::Error::AlreadyExists) {
-                info!("Transaction {} already found, skipping.", tx.transaction_id);
-
                 continue;
             }
 
@@ -46,7 +47,6 @@ fn print_table(txs: &[crate::rules::TransactionValue]) -> Result<String> {
     for tx in txs {
         let status = if tx.pending { "!" } else { "*" };
         writeln!(tw, "{} {} {}", tx.date, status, tx.payee)?;
-        writeln!(tw, "\t; TXID: {}", tx.plaid_id)?;
         writeln!(tw, "\t{}\t${:.2}", tx.dest_account, tx.amount)?;
         writeln!(tw, "\t{}\n", tx.source_account)?;
     }
@@ -54,32 +54,59 @@ fn print_table(txs: &[crate::rules::TransactionValue]) -> Result<String> {
     Ok(String::from_utf8(tw.into_inner()?)?)
 }
 
+struct DateFilter {
+    start: Option<NaiveDate>,
+    end: Option<NaiveDate>,
+}
+
+impl DateFilter {
+    fn new(start: Option<&str>, end: Option<&str>) -> Self {
+        Self {
+            start: start.map(|date| NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap()),
+            end: end.map(|date| NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap()),
+        }
+    }
+
+    fn filter(&self, txn: &Transaction) -> bool {
+        if let Some(start_date) = self.start {
+            if start_date > txn.date {
+                return false;
+            }
+        }
+
+        if let Some(end_date) = self.end {
+            if end_date < txn.date {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+fn by_txn_date(a: &Transaction, b: &Transaction) -> std::cmp::Ordering {
+    if a.date < b.date {
+        return std::cmp::Ordering::Less;
+    }
+
+    if a.date > b.date {
+        return std::cmp::Ordering::Greater;
+    }
+
+    std::cmp::Ordering::Equal
+}
+
 async fn print_ledger(start: Option<&str>, end: Option<&str>, conf: ConfigFile) -> Result<()> {
     let mut store = crate::store::SqliteStore::new(&conf.data_path()).await?;
     let rules = Transformer::from_rules(conf.rules())?;
 
-    let txs: Vec<crate::rules::TransactionValue> = store
-        .transactions()
-        .await?
+    let date_filter = DateFilter::new(start, end);
+    let mut txs = store.transactions().await?;
+    txs.sort_by(by_txn_date);
+
+    let txs: Vec<crate::rules::TransactionValue> = txs
         .iter()
-        .filter(|t| {
-            let date = NaiveDate::parse_from_str(&t.date, "%Y-%m-%d").unwrap();
-            if let Some(start_date) = start {
-                let start_parsed = NaiveDate::parse_from_str(start_date, "%Y-%m-%d").unwrap();
-                if start_parsed > date {
-                    return false;
-                }
-            }
-
-            if let Some(end_date) = end {
-                let end_parsed = NaiveDate::parse_from_str(end_date, "%Y-%m-%d").unwrap();
-                if end_parsed < date {
-                    return false;
-                }
-            }
-
-            true
-        })
+        .filter(|txn| date_filter.filter(txn))
         .map(|t| rules.apply(t).unwrap())
         .collect();
 

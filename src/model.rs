@@ -107,7 +107,8 @@ impl ConfigFile {
     }
 
     pub(crate) fn data_path(&self) -> String {
-        self.conf.db_file
+        self.conf
+            .db_file
             .as_ref()
             .cloned()
             .unwrap_or_else(|| default_data_path())

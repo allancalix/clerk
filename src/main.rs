@@ -1,6 +1,7 @@
 #![feature(result_contains_err)]
 #[allow(clippy::derive_hash_xor_eq)]
 mod accounts;
+mod core;
 mod init;
 mod link;
 mod model;

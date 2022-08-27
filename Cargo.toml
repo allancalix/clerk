@@ -11,8 +11,8 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.43"
 axum = "0.5.4"
-chrono = "0.4.19"
-clap = "3.1.18"
+chrono = { version = "0.4", features = ["serde"] }
+clap = "3.2"
 console-subscriber = "0.1.5"
 crossbeam-channel = "0.5.4"
 dirs = "3.0.2"
@@ -24,9 +24,10 @@ ketos_derive = "0.12.0"
 plaid-link = { path = "crates/plaid_link", version = "0.1.0" }
 regex = "1.5.4"
 rplaid = { version = "0.3.0", features = ["default"] }
+rusty-money = { version = "0.4", features = ["iso"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-sqlx = { version = "0.5.13", features = ["sqlite", "runtime-tokio-native-tls", "migrate"] }
+sqlx = { version = "0.5.13", features = ["sqlite", "runtime-tokio-native-tls", "migrate", "chrono"] }
 tabwriter = "1.2.1"
 thiserror = "1.0.31"
 tokio = { version = "1", features = ["full"] }
@@ -35,3 +36,4 @@ tracing-subscriber = "0.3.11"
 tracing-tree = "0.2.0"
 toml = "0.5.8"
 url = "2.2.2"
+ulid = { version = "1.0", features = ["std"] }

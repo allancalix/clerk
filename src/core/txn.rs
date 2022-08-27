@@ -1,42 +1,59 @@
 use std::collections::{HashMap, HashSet};
 
-use serde::{Serialize, Deserialize}; 
+use chrono::naive::NaiveDate;
+use rusty_money::{iso::Currency, Money};
+use ulid::Ulid;
 
 type Bytes = Vec<u8>;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum Status {
     Resolved,
     Pending,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl ToString for Status {
+    fn to_string(&self) -> String {
+        match self {
+            Status::Resolved => "RESOLVED",
+            Status::Pending => "PENDING",
+        }
+        .to_string()
+    }
+}
+
+impl From<String> for Status {
+    fn from(value: String) -> Status {
+        match value.as_str() {
+            "RESOLVED" => Status::Resolved,
+            "PENDING" => Status::Pending,
+            // TODO(allancalix): change to try_from instead?
+            _ => unreachable!("unexpected status value"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Transaction {
-    status: Status,
-    payee: Option<String>,
-    narration: String,
-    tags: HashSet<String>,
-    links: HashSet<String>,
-    meta: HashMap<String, Bytes>,
+    pub id: Ulid,
+    pub status: Status,
+    pub date: NaiveDate,
+    pub payee: Option<String>,
+    pub postings: Vec<Posting>,
+    pub narration: String,
+    pub tags: HashSet<String>,
+    pub links: HashSet<String>,
+    pub meta: HashMap<String, Bytes>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Account(String);
+#[derive(Debug, Clone)]
+pub struct Account(pub String);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Posting {
-    account: Account,
-    units: Amount,
+    pub account: Account,
+    pub units: Money<'static, Currency>,
     // TODO(allancalix): cost, price
-    status: Status,
-    meta: HashMap<String, Bytes>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Currency(String);
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Amount {
-    value: i32,
-    currency: Currency,
+    pub status: Status,
+    pub meta: HashMap<String, Bytes>,
 }
