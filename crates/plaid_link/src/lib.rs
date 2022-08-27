@@ -274,7 +274,7 @@ mod tests {
     use axum::extract::RequestParts;
 
     fn request_parts_from_uri(uri: &str) -> RequestParts<()> {
-        RequestParts::new(http::request::Request::builder().uri(uri).body(()).unwrap())
+        RequestParts::new(axum::http::Request::builder().uri(uri).body(()).unwrap())
     }
 
     #[tokio::test]
