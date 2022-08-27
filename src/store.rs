@@ -184,7 +184,7 @@ async fn insert_transaction<'a>(
     source: String,
 ) -> Result<()> {
     let result = sqlx::query(
-        "INSERT INTO transactions_new (
+        "INSERT INTO transactions (
             id,
             date,
             payee,
@@ -240,7 +240,7 @@ async fn select_transaction_connection<'a>(
 async fn select_transactions(
     conn: &mut PoolConnection<sqlx::sqlite::Sqlite>,
 ) -> Result<Vec<Transaction>> {
-    let rows = sqlx::query("SELECT id, payee, date, narration, status FROM transactions_new")
+    let rows = sqlx::query("SELECT id, payee, date, narration, status FROM transactions")
         .fetch_all(conn)
         .await?;
 
