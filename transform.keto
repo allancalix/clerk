@@ -3,9 +3,9 @@
 
 (define (remap_account name)
  (case name
-  (("dLkx161njniBvw6B36LGIWJEvWnmjgfZ9lkD1") "Assets:Plaid Checking")
-  (("aZ8zQbQW4WiG5JNG9NbQU7wZp7nrBNh7noN1B") "Assets:Plaid Savings")
-  (("NEBoJDJxmxhdoaBdAB7eueRQveKzqyFWao3nD") "Liabilities:Plaid Credit Card")
+  (("dLkx161njniBvw6B36LGIWJEvWnmjgfZ9lkD1") "Assets:Plaid-Checking")
+  (("aZ8zQbQW4WiG5JNG9NbQU7wZp7nrBNh7noN1B") "Assets:Plaid-Savings")
+  (("NEBoJDJxmxhdoaBdAB7eueRQveKzqyFWao3nD") "Liabilities:Plaid-Credit-Card")
   (else name)))
 
 (define (with_payee_match_and_amount tx match amount)

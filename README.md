@@ -1,75 +1,65 @@
 # Clerk
-
-A utility for automatically generating Ledger entries from [Plaid API][Plaid]
+A utility for automatically generating beancount entries from [Plaid API][Plaid]
 data.
 
 **Features:**
-* Stores and syncs data from Plaid to your local machine.
-* Integrates with Plaid Link for linking accounts.
-* Provides a powerful scripting language to customer Ledger record output. See
-	[Ketos](https://github.com/murarth/ketos) for more information on scripting.
+* Sync transaction data from Plaid to your local machine
+* Integration with [Plaid Link][Plaid Link]
+* Customize beancount transactions with a lisp-like scripting language
 
 ## Example
 [![asciicast](https://asciinema.org/a/437024.png)](https://asciinema.org/a/437024)
 
-
 Without any rules configured, expenses are not categorized and accounts ids are
 used in records.
 
+You can optionally customize the output records in a variety of ways. See
+[Ketos](https://github.com/murarth/ketos) for a breakdown of the scripting language.
+
 __Default, no scripting rules applied.__
 ```
-2021/09/16 * AUTOMATIC PAYMENT - THANK
-    ; TXID: 7Kx6oDoMdMSJ8BQJpQ1lTMK4v8klJ7CgA8D49
-    Expenses:Unknown  $2078.50
+2021-09-16 * "AUTOMATIC PAYMENT - THANK"
+    Expenses:Unknown  2078.50 USD
     NEBoJDJxmxhdoaBdAB7eueRQveKzqyFWao3nD
 
-2021/09/16 * Madison Bicycle Shop
-    ; TXID: Plx8JDJa9auRnwERqEjof1QKV5rk9NU7BXqEP
-    Expenses:Unknown  $500.00
+2021-09-16 * "Madison Bicycle Shop"
+    Expenses:Unknown  500.00 USD
     NEBoJDJxmxhdoaBdAB7eueRQveKzqyFWao3nD
 
-2021/09/16 * KFC
-    ; TXID: jW9jvnvq1qtWbmMWKMZGs6RN3m8rVwF1zvno3
-    Expenses:Unknown  $500.00
+2021-09-16 * "KFC"
+    Expenses:Unknown  500.00 USD
     NEBoJDJxmxhdoaBdAB7eueRQveKzqyFWao3nD
 
-2021/09/17 * Tectra Inc
-    ; TXID: NEBoJDJxmxhdoaBdAB7eueRn65gjqyFWBXRLJ
-    Expenses:Unknown  $500.00
+2021-09-17 * "Tectra Inc"
+    Expenses:Unknown  500.00 USD
     NEBoJDJxmxhdoaBdAB7eueRQveKzqyFWao3nD
 
-2021/09/20 * Uber 072515 SF**POOL**
-    ; TXID: KoK1JDJzGzcK1LkKJk9aTpwrW5nZDltVWEdga
-    Expenses:Unknown  $6.33
+2021-09-20 * "Uber 072515 SF**POOL**"
+    Expenses:Unknown  6.33 USD
     dLkx161njniBvw6B36LGIWJEvWnmjgfZ9lkD1
 ```
 
 __Output with [scripting rules](transform.keto)__.
 ```
-2021/09/16 * AUTOMATIC PAYMENT - THANK
-    ; TXID: 7Kx6oDoMdMSJ8BQJpQ1lTMK4v8klJ7CgA8D49
-    Expenses:Unknown  $2078.50
-    Liabilities:Plaid Credit Card
+2021/09/16 * "AUTOMATIC PAYMENT - THANK"
+    Expenses:Unknown  2078.50 USD
+    Liabilities:Plaid-Credit-Card
 
-2021/09/16 * Madison Bicycle Shop
-    ; TXID: Plx8JDJa9auRnwERqEjof1QKV5rk9NU7BXqEP
-    Expenses:Shopping  $500.00
-    Liabilities:Plaid Credit Card
+2021/09/16 * "Madison Bicycle Shop"
+    Expenses:Shopping  500.00 USD
+    Liabilities:Plaid-Credit-Card
 
-2021/09/16 * KFC
-    ; TXID: jW9jvnvq1qtWbmMWKMZGs6RN3m8rVwF1zvno3
-    Expenses:Food:Restaurant  $500.00
-    Liabilities:Plaid Credit Card
+2021/09/16 * "KFC"
+    Expenses:Food:Restaurant  500.00 USD
+    Liabilities:Plaid-Credit-Card
 
-2021/09/17 * Tectra Inc
-    ; TXID: NEBoJDJxmxhdoaBdAB7eueRn65gjqyFWBXRLJ
-    Expenses:Shopping  $500.00
-    Liabilities:Plaid Credit Card
+2021/09/17 * "Tectra Inc"
+    Expenses:Shopping  500.00 USD
+    Liabilities:Plaid-Credit-Card
 
-2021/09/20 * Uber 072515 SF**POOL**
-    ; TXID: KoK1JDJzGzcK1LkKJk9aTpwrW5nZDltVWEdga
-    Expenses:Transportation:Rideshare  $6.33
-    Assets:Plaid Checking
+2021/09/20 * "Uber 072515 SF**POOL**"
+    Expenses:Transportation:Rideshare  6.33 USD
+    Assets:Plaid-Checking
 ```
 
 ## Installation
@@ -87,14 +77,14 @@ Prebuilt binaries for Linux and MacOS (pre-M1) can be found for the latest
 ## Usage
 
 ### Configuration
-clerk requires a [configuration file](ledgersync.toml) and optionally one
-or more [keto scripts](transform.keto) for processing transactions into Ledger
+clerk requires a [configuration file](clerk.toml) and optionally one
+or more [keto scripts](transform.keto) for processing transactions into beancount
 entries. The script in this repository highlights some features of scripting
 provides such as __categorizing, aliasing, and regex-based matching__.
 
 ```sh
 # Providing a configuration file explicitly.
-clerk -c ledgersync.toml accounts
+clerk -c clerk.toml accounts
 ```
 
 If no configuration is explicitly given, clerk will search for a file called
@@ -114,8 +104,10 @@ perform authentication.
 # Initializes a configuration file with interactive shell prompts.
 clerk init
 
+# Link a new account to Plaid.
 clerk link
-# Visit http://127.0.0.1:3030/link to link a new account
+# Refresh a linked accounts status, periodically required for some accounts
+clerk link --update <LINK_ID>
 
 # List all link items and their current status.
 clerk link status
@@ -130,17 +122,17 @@ clerk link delete <ITEM_ID>
 Commands for interacting with transaction data for all tracked accounts.
 
 ```sh
-# Prints out Ledger records for each transaction, can be filtered out by date using
+# Prints out beancount records for each transaction, can be filtered out by date using
 # the --begin and --until flags respectively.
-clerk transactions print
+clerk txn print
 
 # Pulls all transaction data for all accounts tracked in the given time range. By
 # default, this command pulls the last 2 weeks of transactions. Time range can be
 # manipulated using the --begin and --until commands.
-clerk transactions sync
+clerk txn sync
 
 # Filtering the first two weeks of September.
-clerk transactions sync --begin 2021-09-01 --until 2021-09-14
+clerk txn sync --begin 2021-09-01 --until 2021-09-14
 ```
 
 ### Accounts
@@ -149,26 +141,26 @@ accounts you have an active access token for).
 
 ```sh
 # List all tracked accounts.
-clerk accounts
+clerk account
 # Display the current balance for tracked accounts. This command pulls the latest
 # data and tends to be relatively slow.
-clerk accounts balance
+clerk account balances
 ```
 
 ## Caveats
-This tool is meant to simplify the maintenance of a personal Ledger record, please
-consider where and how your data is stored (please don't run this on a public
-machine). There may be - or definitely are - rough edges as pre-release software.
+This tool is meant to simplify the maintenance of a personal plaintext finance records,
+please consider where and how your data is stored (please don't run this on a public
+machine). Note that data is stored in a local sqlite database as plain text and
+makes no effort to encrypt or otherwise obfuscate your data.
+
+This single database file can be encrypted for additional security using a file
+encryption tool like [age](https://github.com/FiloSottile/age).
 
 ## Roadmap
-- [ ] Interop with existing Ledger files to update records for cleared transactions.
+- [ ] Automatic transaction deduping between linked accounts
+- [ ] Expand upstream data sources (e.g. csv imports, Stripe, etc)
 - [ ] Expand on storage options (e.g. encryption / remote-storage)
-- [ ] Improve ketos interpreter error messaging for debugging scripts.
-- [ ] Add caching to balance / accounts lookups
-
-[Plaid]: https://plaid.com/docs/api/ "Plaid Docs"
-[Plaid Link]: https://plaid.com/docs/link/ "Plaid Link Documentation"
-[Standard Directories]: https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html#//apple_ref/doc/uid/TP40010672-CH2-SW6
+- [ ] Open up scripting options by supporting WASM extensions
 
 ## Troubleshooting
 ### I'm using `clerk` for the first time and getting data file doesn't exist errors.
@@ -179,3 +171,7 @@ your own db file using sqlite or add `?mode=rwc` to your `db_file` path.
 ```toml
 db_file = "./clerk/clerk.db?mode=rwc"
 ```
+
+[Plaid]: https://plaid.com/docs/api/ "Plaid Docs"
+[Plaid Link]: https://plaid.com/docs/link/ "Plaid Link Documentation"
+[Standard Directories]: https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html#//apple_ref/doc/uid/TP40010672-CH2-SW6
