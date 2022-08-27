@@ -6,6 +6,7 @@ use anyhow::Result;
 use clap::ArgMatches;
 use futures::future::join_all;
 use rplaid::model::*;
+use rusty_money::{Money, iso::{self, Currency}};
 use tabwriter::TabWriter;
 
 use crate::model::ConfigFile;
@@ -64,36 +65,45 @@ async fn balances(conf: ConfigFile) -> Result<()> {
     }
 
     let mut tw = TabWriter::new(vec![]);
-    writeln!(tw, "Assets")?;
 
+    writeln!(tw, "Assets")?;
     writeln!(tw, "Name\tAvailable\tCurrent")?;
     for (_k, v) in balances_by_type
         .iter()
         .filter(|(t, _)| *t == &AccountType::Depository)
     {
         for b in v {
+            let currency_code = b.balances.iso_current_code
+                .as_ref()
+                .map(|c| c.as_str())
+                .unwrap_or("USD");
             writeln!(
                 tw,
                 "{}\t{}\t{}",
                 b.name,
-                b.balances.available.unwrap_or(0.0),
-                b.balances.current.unwrap_or(0.0)
+                money_from_float(b.balances.available.unwrap_or(0.0), currency_code),
+                money_from_float(b.balances.current.unwrap_or(0.0), currency_code),
             )?;
         }
     }
 
     writeln!(tw, "\nLiabililties")?;
+    writeln!(tw, "Name\tAvailable\tCurrent")?;
     for (_k, v) in balances_by_type
         .iter()
         .filter(|(t, _)| *t == &AccountType::Credit)
     {
         for b in v {
+            let currency_code = b.balances.iso_current_code
+                .as_ref()
+                .map(|c| c.as_str())
+                .unwrap_or("USD");
             writeln!(
                 tw,
                 "{}\t{}\t{}",
                 b.name,
-                b.balances.available.unwrap_or(0.0),
-                b.balances.current.unwrap_or(0.0)
+                money_from_float(b.balances.available.unwrap_or(0.0), currency_code),
+                money_from_float(b.balances.current.unwrap_or(0.0), currency_code),
             )?;
         }
     }
@@ -102,6 +112,13 @@ async fn balances(conf: ConfigFile) -> Result<()> {
     println!("{}", table);
 
     Ok(())
+}
+
+fn money_from_float(amount: f64, currency: &str) -> Money<'static, Currency> {
+    let currency = iso::find(currency).unwrap_or(iso::USD);
+    let amount = amount.to_string();
+
+    Money::from_str(&amount, currency).unwrap()
 }
 
 pub(crate) async fn run(matches: &ArgMatches, conf: ConfigFile) -> Result<()> {
