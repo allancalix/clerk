@@ -111,7 +111,7 @@ impl ConfigFile {
             .db_file
             .as_ref()
             .cloned()
-            .unwrap_or_else(|| default_data_path())
+            .unwrap_or_else(default_data_path)
     }
 
     pub(crate) fn rules(&self) -> Vec<PathBuf> {

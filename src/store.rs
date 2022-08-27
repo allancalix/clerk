@@ -374,6 +374,40 @@ fn from_enum(env: &str) -> anyhow::Result<Environment> {
 mod tests {
     use super::*;
 
+    use chrono::NaiveDate;
+    use rplaid::model::Transaction as PlaidTransaction;
+    use ulid::Ulid;
+
+    const UPSTREAM_TXN_ID: &str = "test-upstream-id";
+
+    fn plaid_transaction() -> PlaidTransaction {
+        PlaidTransaction {
+            transaction_type: "".to_string(),
+            pending_transaction_id: None,
+            category_id: None,
+            category: None,
+            location: None,
+            payment_meta: None,
+            account_owner: None,
+            name: "".to_string(),
+            original_description: None,
+            account_id: "".to_string(),
+            amount: 33.25,
+            iso_currency_code: None,
+            unofficial_currency_code: None,
+            date: "2022-05-01".to_string(),
+            pending: false,
+            transaction_id: "1234-test".to_string(),
+            payment_channel: "".to_string(),
+            merchant_name: None,
+            authorized_date: None,
+            authorized_datetime: None,
+            datetime: None,
+            check_number: None,
+            transaction_code: None,
+        }
+    }
+
     async fn test_store() -> SqliteStore {
         SqliteStore::new("sqlite::memory:").await.unwrap()
     }
@@ -448,84 +482,25 @@ mod tests {
         };
         store.save_link(&link).await.unwrap();
 
-        let transaction = Transaction {
-            transaction_type: "".to_string(),
-            pending_transaction_id: None,
-            category_id: None,
-            category: None,
-            location: None,
-            payment_meta: None,
-            account_owner: None,
-            name: "".to_string(),
-            original_description: None,
-            account_id: "".to_string(),
-            amount: 33.25,
-            iso_currency_code: None,
-            unofficial_currency_code: None,
-            date: "2022-05-01".to_string(),
-            pending: false,
-            transaction_id: "1234-test".to_string(),
-            payment_channel: "".to_string(),
-            merchant_name: None,
-            authorized_date: None,
-            authorized_datetime: None,
-            datetime: None,
-            check_number: None,
-            transaction_code: None,
+        let entry = TransactionEntry {
+            canonical: Transaction {
+                id: Ulid::new(),
+                date: NaiveDate::parse_from_str("2022-05-01", "%Y-%m-%d").unwrap(),
+                narration: "Test Transaction".to_string(),
+                payee: None,
+                postings: Default::default(),
+                links: Default::default(),
+                tags: Default::default(),
+                meta: Default::default(),
+                status: Status::Resolved,
+            },
+            source: plaid_transaction(),
         };
 
-        let result = store.save_tx(&link.item_id, &transaction).await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn saving_error_with_conflicting_key_returns_error() {
-        let mut store = test_store().await;
-        let link = Link {
-            alias: "test_link".to_string(),
-            access_token: "1234".to_string(),
-            item_id: "plaid-id-123".to_string(),
-            state: crate::plaid::LinkStatus::Active,
-            env: Environment::Development,
-        };
-        store.save_link(&link).await.unwrap();
-
-        let transaction = Transaction {
-            transaction_type: "".to_string(),
-            pending_transaction_id: None,
-            category_id: None,
-            category: None,
-            location: None,
-            payment_meta: None,
-            account_owner: None,
-            name: "".to_string(),
-            original_description: None,
-            account_id: "".to_string(),
-            amount: 33.25,
-            iso_currency_code: None,
-            unofficial_currency_code: None,
-            date: "2022-05-01".to_string(),
-            pending: false,
-            transaction_id: "1234-test".to_string(),
-            payment_channel: "".to_string(),
-            merchant_name: None,
-            authorized_date: None,
-            authorized_datetime: None,
-            datetime: None,
-            check_number: None,
-            transaction_code: None,
-        };
-
-        let result = store.save_tx(&link.item_id, &transaction).await;
-
-        assert!(result.is_ok());
-
-        let result = store
-            .save_tx(&link.item_id, &transaction)
+        store
+            .save_tx(&link.item_id, UPSTREAM_TXN_ID, &entry)
             .await
-            .unwrap_err();
-        assert!(matches!(result, Error::AlreadyExists));
+            .unwrap();
     }
 
     #[tokio::test]

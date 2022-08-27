@@ -55,7 +55,7 @@ impl IntoResponse for LinkError {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum LinkMode {
     Create,
     Update(String),
@@ -102,7 +102,7 @@ where
 }
 
 /// State can be used to curry data during the link flow lifecycle.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct State {
     /// A system-specific user ID for which the credentials are being created.
     pub user_id: String,
