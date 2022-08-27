@@ -46,8 +46,8 @@ fn print_table(txs: &[crate::rules::TransactionValue]) -> Result<String> {
 
     for tx in txs {
         let status = if tx.pending { "!" } else { "*" };
-        writeln!(tw, "{} {} {}", tx.date, status, tx.payee)?;
-        writeln!(tw, "\t{}\t${:.2}", tx.dest_account, tx.amount)?;
+        writeln!(tw, "{} {} \"{}\"", tx.date, status, tx.payee)?;
+        writeln!(tw, "\t{}\t{:.2} USD", tx.dest_account, tx.amount)?;
         writeln!(tw, "\t{}\n", tx.source_account)?;
     }
 
