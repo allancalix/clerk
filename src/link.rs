@@ -6,7 +6,7 @@ use crossbeam_channel::{bounded, Receiver};
 use plaid_link::{LinkMode, State};
 use tokio::signal;
 use tokio::time::{sleep_until, Duration, Instant};
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::model::ConfigFile;
 use crate::plaid::{default_plaid_client, Link, LinkController, LinkStatus};
@@ -59,7 +59,7 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode, name: &str) -> Res
     let server = plaid_link::LinkServer::new(plaid);
 
     let mut listener = server.on_exchange();
-    let mut store = store::SqliteStore::new(&conf.data_path()?).await?;
+    let mut store = store::SqliteStore::new(&conf.data_path()).await?;
     let link = match &mode {
         plaid_link::LinkMode::Update(s) => Some(store.link(s).await?),
         plaid_link::LinkMode::Create => None,
@@ -141,25 +141,21 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode, name: &str) -> Res
 }
 
 async fn remove(conf: ConfigFile, item_id: &str) -> Result<()> {
-    let mut store = store::SqliteStore::new(&conf.data_path()?).await?;
+    let mut store = store::SqliteStore::new(&conf.data_path()).await?;
     let plaid = default_plaid_client(&conf);
 
-    let link = store.delete_link(item_id).await?;
+    let link = store.link(item_id).await?;
     plaid.item_del(&link.access_token).await?;
+    store.delete_link(item_id).await?;
 
     Ok(())
 }
 
 async fn status(conf: ConfigFile) -> Result<()> {
-    let mut store = store::SqliteStore::new(&conf.data_path()?).await?;
+    let mut store = store::SqliteStore::new(&conf.data_path()).await?;
     let plaid = default_plaid_client(&conf);
 
-    let mut links: Vec<Link> = store
-        .links()
-        .await?
-        .into_iter()
-        .filter(|e| e.env == conf.config().plaid.env)
-        .collect();
+    let mut links: Vec<Link> = store.links().await?;
 
     for link in &mut links {
         let item = plaid.item(&link.access_token).await?;
@@ -175,7 +171,7 @@ async fn status(conf: ConfigFile) -> Result<()> {
                 continue;
             }
 
-            return Err(anyhow::anyhow!(e));
+            warn!("Unexpected link error. id={}", link.item_id);
         }
     }
     let link_controller = LinkController::new(default_plaid_client(&conf), links).await?;
@@ -196,7 +192,7 @@ pub(crate) async fn run(matches: &ArgMatches, conf: ConfigFile) -> Result<()> {
             remove(conf, item_id).await
         }
         _ => {
-            let name = matches.value_of("name").unwrap_or("test");
+            let name = matches.value_of("name").unwrap_or("");
             match matches.value_of("update") {
                 Some(token) => {
                     server(conf, plaid_link::LinkMode::Update(token.to_string()), name).await

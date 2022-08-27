@@ -1,6 +1,7 @@
 #![feature(result_contains_err)]
 #[allow(clippy::derive_hash_xor_eq)]
 mod accounts;
+mod core;
 mod init;
 mod link;
 mod model;
@@ -8,6 +9,7 @@ mod plaid;
 mod rules;
 mod store;
 mod txn;
+mod upstream;
 
 #[macro_use]
 extern crate ketos;
@@ -36,21 +38,21 @@ async fn run() -> Result<()> {
         .allow_external_subcommands(false)
         .arg(arg!(CONFIG: -c --config [FILE] "Sets a custom config file"))
         .arg(arg!(verbose: -v --verbose [Boolean] "Sets the level of verbosity"))
-        .arg(arg!(env: -e --env [String] "Selects the environment to run against."))
         .subcommand(Command::new("init").about("Initialize CLI for use."))
         .subcommand(Command::new("link")
             .about("Links a new account for tracking.")
             .arg(arg!(name: -n --name [ALIAS] "An alias to easily identify what accounts the link belongs to."))
             .arg(arg!(update: -u --update [ITEM_ID] "Update a link for an existing account link, must pass the access token for the expired link."))
+            .arg(arg!(env: -e --env [String] "Selects the environment to run against."))
             .subcommand(Command::new("status").about("Displays all links and their current status."))
             .subcommand(Command::new("delete")
                 .about("Deletes a Plaid account link.")
                 .arg(arg!(item_id: <ITEM_ID> "The item ID of the link to delete."))))
-        .subcommand(Command::new("accounts")
+        .subcommand(Command::new("account")
             .about("Prints tracked accounts to stdout.")
-            .subcommand(Command::new("balance")
+            .subcommand(Command::new("balances")
                 .about("Prints balances of all accounts. This command fetches current data and may take some time to complete.")))
-        .subcommand(Command::new("transactions")
+        .subcommand(Command::new("txn")
             .subcommand_required(true)
             .about("pulls a set of transactions to the store")
             .subcommand(Command::new("sync")
@@ -86,11 +88,11 @@ async fn run() -> Result<()> {
             let conf = ConfigFile::read(app.get_matches().value_of("CONFIG"))?;
             link::run(link_matches, conf).await?;
         }
-        Some(("transactions", link_matches)) => {
+        Some(("txn", link_matches)) => {
             let conf = ConfigFile::read(app.get_matches().value_of("CONFIG"))?;
             txn::run(link_matches, conf).await?;
         }
-        Some(("accounts", link_matches)) => {
+        Some(("account", link_matches)) => {
             let conf = ConfigFile::read(app.get_matches().value_of("CONFIG"))?;
             accounts::run(link_matches, conf).await?;
         }
@@ -104,7 +106,7 @@ async fn run() -> Result<()> {
 #[tokio::main]
 async fn main() {
     if let Err(err) = run().await {
-        println!("{}", err);
+        eprintln!("Exited abnormally: {}", err);
         std::process::exit(1);
     }
 }
