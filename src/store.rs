@@ -167,6 +167,7 @@ impl SqliteStore {
             .await
     }
 
+    #[allow(dead_code)]
     pub async fn transactions(&mut self) -> Result<Vec<Transaction>> {
         let conn = &mut self.conn.acquire().await?;
         let mut txns = select_transactions(conn).await?;
@@ -237,6 +238,7 @@ async fn select_transaction_connection<'a>(
     }))
 }
 
+#[allow(dead_code)]
 async fn select_transactions(
     conn: &mut PoolConnection<sqlx::sqlite::Sqlite>,
 ) -> Result<Vec<Transaction>> {
@@ -263,6 +265,7 @@ async fn select_transactions(
         .collect())
 }
 
+#[allow(dead_code)]
 async fn select_postings<'a>(
     conn: &mut PoolConnection<sqlx::sqlite::Sqlite>,
     txn_id: &str,

@@ -18,7 +18,6 @@ pub(crate) struct ConfigFile {
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub(crate) struct Conf {
-    pub(crate) rules: Vec<String>,
     pub(crate) plaid: PlaidOpts,
     pub(crate) db_file: Option<String>,
 }
@@ -35,7 +34,6 @@ impl ConfigFile {
         Self {
             path: file_path,
             conf: Conf {
-                rules: vec![],
                 plaid: PlaidOpts {
                     client_id: String::new(),
                     secret: String::new(),
@@ -112,23 +110,6 @@ impl ConfigFile {
             .as_ref()
             .cloned()
             .unwrap_or_else(default_data_path)
-    }
-
-    pub(crate) fn rules(&self) -> Vec<PathBuf> {
-        let mut rules = vec![];
-        let mut root = self.path.clone();
-        root.pop();
-
-        for rule in &self.config().rules {
-            let mut path = PathBuf::from(rule);
-            if path.is_relative() {
-                path = root.clone().join(rule)
-            };
-
-            rules.push(path);
-        }
-
-        rules
     }
 
     pub(crate) fn valid(&self) -> bool {

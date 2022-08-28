@@ -1,66 +1,9 @@
 # Clerk
-A utility for automatically generating beancount entries from [Plaid API][Plaid]
-data.
+A utility for automatically syncing transactions from [Plaid API][Plaid].
 
 **Features:**
 * Sync transaction data from Plaid to your local machine
 * Integration with [Plaid Link][Plaid Link]
-* Customize beancount transactions with a lisp-like scripting language
-
-## Example
-[![asciicast](https://asciinema.org/a/437024.png)](https://asciinema.org/a/437024)
-
-Without any rules configured, expenses are not categorized and accounts ids are
-used in records.
-
-You can optionally customize the output records in a variety of ways. See
-[Ketos](https://github.com/murarth/ketos) for a breakdown of the scripting language.
-
-__Default, no scripting rules applied.__
-```
-2021-09-16 * "AUTOMATIC PAYMENT - THANK"
-    Expenses:Unknown  2078.50 USD
-    NEBoJDJxmxhdoaBdAB7eueRQveKzqyFWao3nD
-
-2021-09-16 * "Madison Bicycle Shop"
-    Expenses:Unknown  500.00 USD
-    NEBoJDJxmxhdoaBdAB7eueRQveKzqyFWao3nD
-
-2021-09-16 * "KFC"
-    Expenses:Unknown  500.00 USD
-    NEBoJDJxmxhdoaBdAB7eueRQveKzqyFWao3nD
-
-2021-09-17 * "Tectra Inc"
-    Expenses:Unknown  500.00 USD
-    NEBoJDJxmxhdoaBdAB7eueRQveKzqyFWao3nD
-
-2021-09-20 * "Uber 072515 SF**POOL**"
-    Expenses:Unknown  6.33 USD
-    dLkx161njniBvw6B36LGIWJEvWnmjgfZ9lkD1
-```
-
-__Output with [scripting rules](transform.keto)__.
-```
-2021/09/16 * "AUTOMATIC PAYMENT - THANK"
-    Expenses:Unknown  2078.50 USD
-    Liabilities:Plaid-Credit-Card
-
-2021/09/16 * "Madison Bicycle Shop"
-    Expenses:Shopping  500.00 USD
-    Liabilities:Plaid-Credit-Card
-
-2021/09/16 * "KFC"
-    Expenses:Food:Restaurant  500.00 USD
-    Liabilities:Plaid-Credit-Card
-
-2021/09/17 * "Tectra Inc"
-    Expenses:Shopping  500.00 USD
-    Liabilities:Plaid-Credit-Card
-
-2021/09/20 * "Uber 072515 SF**POOL**"
-    Expenses:Transportation:Rideshare  6.33 USD
-    Assets:Plaid-Checking
-```
 
 ## Installation
 
@@ -77,10 +20,7 @@ Prebuilt binaries for Linux and MacOS (pre-M1) can be found for the latest
 ## Usage
 
 ### Configuration
-clerk requires a [configuration file](clerk.toml) and optionally one
-or more [keto scripts](transform.keto) for processing transactions into beancount
-entries. The script in this repository highlights some features of scripting
-provides such as __categorizing, aliasing, and regex-based matching__.
+clerk requires a [configuration file](clerk.toml).
 
 ```sh
 # Providing a configuration file explicitly.
@@ -122,10 +62,6 @@ clerk link delete <ITEM_ID>
 Commands for interacting with transaction data for all tracked accounts.
 
 ```sh
-# Prints out beancount records for each transaction, can be filtered out by date using
-# the --begin and --until flags respectively.
-clerk txn print
-
 # Pulls all transaction data for all accounts tracked in the given time range. By
 # default, this command pulls the last 2 weeks of transactions. Time range can be
 # manipulated using the --begin and --until commands.
@@ -142,6 +78,7 @@ accounts you have an active access token for).
 ```sh
 # List all tracked accounts.
 clerk account
+
 # Display the current balance for tracked accounts. This command pulls the latest
 # data and tends to be relatively slow.
 clerk account balances
@@ -160,7 +97,6 @@ encryption tool like [age](https://github.com/FiloSottile/age).
 - [ ] Automatic transaction deduping between linked accounts
 - [ ] Expand upstream data sources (e.g. csv imports, Stripe, etc)
 - [ ] Expand on storage options (e.g. encryption / remote-storage)
-- [ ] Open up scripting options by supporting WASM extensions
 
 ## Troubleshooting
 ### I'm using `clerk` for the first time and getting data file doesn't exist errors.

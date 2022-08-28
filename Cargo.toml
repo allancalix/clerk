@@ -19,8 +19,6 @@ dirs = "4.0"
 futures = "0.3"
 futures-util = "0.3"
 http = "0.2"
-ketos = "0.12"
-ketos_derive = "0.12"
 plaid-link = { path = "crates/plaid_link", version = "0.1.0" }
 regex = "1.6"
 rplaid = { git = "https://github.com/allancalix/rplaid.git", branch = "main" }
