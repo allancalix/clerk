@@ -6,15 +6,9 @@ mod init;
 mod link;
 mod model;
 mod plaid;
-mod rules;
 mod store;
 mod txn;
 mod upstream;
-
-#[macro_use]
-extern crate ketos;
-#[macro_use]
-extern crate ketos_derive;
 
 use anyhow::Result;
 use clap::{arg, Command};

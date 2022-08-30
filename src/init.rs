@@ -61,7 +61,6 @@ fn init_config(conf: ConfigFile) -> Result<()> {
 
     let opts = to_plaid_opts(client_id, client_secret, client_environment)?;
     conf.update(&Conf {
-        rules: vec![],
         plaid: opts,
         db_file: None,
     })?;
