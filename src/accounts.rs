@@ -5,6 +5,7 @@ use std::io::prelude::*;
 use anyhow::Result;
 use clap::ArgMatches;
 use futures::future::join_all;
+use lazy_static::lazy_static;
 use rplaid::model::*;
 use rusty_money::{
     iso::{self, Currency},
@@ -14,6 +15,10 @@ use tabwriter::TabWriter;
 
 use crate::model::ConfigFile;
 use crate::plaid::{default_plaid_client, Link};
+
+lazy_static! {
+    static ref ZERO_DOLLARS: Money<'static, Currency> = Money::from_minor(0_i64, iso::USD);
+}
 
 #[derive(Eq, PartialEq)]
 struct AccountTypeWrapper(AccountType);
@@ -80,13 +85,18 @@ async fn balances(conf: ConfigFile) -> Result<()> {
                 .balances
                 .iso_currency_code
                 .as_deref()
-                .unwrap_or("USD");
+                .and_then(iso::find)
+                .unwrap_or(iso::USD);
             writeln!(
                 tw,
                 "{}\t{}\t{}",
                 b.name,
-                money_from_float(b.balances.available.unwrap_or(0.0), currency_code),
-                money_from_float(b.balances.current.unwrap_or(0.0), currency_code),
+                b.balances.available.map(|amount| {
+                    Money::from_decimal(amount, currency_code)
+                }).as_ref().unwrap_or(&ZERO_DOLLARS),
+                b.balances.current.map(|amount| {
+                    Money::from_decimal(amount, currency_code)
+                }).as_ref().unwrap_or(&ZERO_DOLLARS),
             )?;
         }
     }
@@ -102,13 +112,18 @@ async fn balances(conf: ConfigFile) -> Result<()> {
                 .balances
                 .iso_currency_code
                 .as_deref()
-                .unwrap_or("USD");
+                .and_then(iso::find)
+                .unwrap_or(iso::USD);
             writeln!(
                 tw,
                 "{}\t{}\t{}",
                 b.name,
-                money_from_float(b.balances.available.unwrap_or(0.0), currency_code),
-                money_from_float(b.balances.current.unwrap_or(0.0), currency_code),
+                b.balances.available.map(|amount| {
+                    Money::from_decimal(amount, currency_code)
+                }).as_ref().unwrap_or(&ZERO_DOLLARS),
+                b.balances.current.map(|amount| {
+                    Money::from_decimal(amount, currency_code)
+                }).as_ref().unwrap_or(&ZERO_DOLLARS),
             )?;
         }
     }
@@ -117,13 +132,6 @@ async fn balances(conf: ConfigFile) -> Result<()> {
     println!("{}", table);
 
     Ok(())
-}
-
-fn money_from_float(amount: f64, currency: &str) -> Money<'static, Currency> {
-    let currency = iso::find(currency).unwrap_or(iso::USD);
-    let amount = amount.to_string();
-
-    Money::from_str(&amount, currency).unwrap()
 }
 
 pub(crate) async fn run(matches: &ArgMatches, conf: ConfigFile) -> Result<()> {
