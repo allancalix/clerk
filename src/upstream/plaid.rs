@@ -5,24 +5,23 @@ use futures_util::pin_mut;
 use futures_util::StreamExt;
 use rplaid::client::Plaid;
 use rplaid::model::{self, Account, GetTransactionsOptions, GetTransactionsRequest};
-use rplaid::HttpClient;
 
 use crate::core::{Account as CoreAccount, Posting, Status, Transaction};
 use crate::upstream::{AccountSource, TransactionEntry, TransactionSource};
 
-pub struct Source<'a, T: HttpClient> {
-    pub(crate) client: &'a Plaid<T>,
+pub struct Source<'a> {
+    pub(crate) client: &'a Plaid,
     pub(crate) token: String,
 }
 
-impl<'a, T: HttpClient> Source<'a, T> {
-    pub fn new(client: &'a Plaid<T>, token: String) -> Self {
+impl<'a> Source<'a> {
+    pub fn new(client: &'a Plaid, token: String) -> Self {
         Self { client, token }
     }
 }
 
 #[async_trait]
-impl<'a, T: HttpClient> AccountSource for Source<'a, T> {
+impl<'a> AccountSource for Source<'a> {
     async fn accounts(&self) -> Result<Vec<Account>> {
         Ok(self.client.accounts(&self.token).await?)
     }
@@ -74,7 +73,7 @@ fn to_canonical_txn(tx: &model::Transaction) -> Result<Transaction> {
 }
 
 #[async_trait]
-impl<'a, T: HttpClient> TransactionSource<model::Transaction> for Source<'a, T> {
+impl<'a> TransactionSource<model::Transaction> for Source<'a> {
     async fn transactions(
         &self,
         start: NaiveDate,

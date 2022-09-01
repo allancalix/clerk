@@ -2,7 +2,6 @@ use std::io::Write;
 
 use anyhow::{anyhow, Result};
 use rplaid::client::{Builder, Credentials, Environment, Plaid};
-use rplaid::HttpClient;
 use serde::{Deserialize, Serialize};
 use tabwriter::TabWriter;
 
@@ -14,7 +13,7 @@ pub struct LinkController {
 }
 
 impl LinkController {
-    pub async fn new<T: HttpClient>(client: Plaid<T>, links: Vec<Link>) -> Result<LinkController> {
+    pub async fn new(client: Plaid, links: Vec<Link>) -> Result<LinkController> {
         let mut connections = vec![];
 
         for link in links {
@@ -101,9 +100,7 @@ impl LinkController {
     }
 }
 
-pub(crate) fn default_plaid_client(
-    conf: &ConfigFile,
-) -> rplaid::client::Plaid<impl rplaid::HttpClient> {
+pub(crate) fn default_plaid_client(conf: &ConfigFile) -> rplaid::client::Plaid {
     Builder::new()
         .with_credentials(Credentials {
             client_id: conf.config().plaid.client_id.clone(),

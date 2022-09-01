@@ -21,7 +21,8 @@ futures-util = "0.3"
 http = "0.2"
 plaid-link = { path = "crates/plaid_link", version = "0.1.0" }
 regex = "1.6"
-rplaid = { git = "https://github.com/allancalix/rplaid.git", branch = "main" }
+# rplaid = { git = "https://github.com/allancalix/rplaid.git", branch = "main" }
+rplaid = { path = "../rplaid" }
 rusty-money = { version = "0.4", features = ["iso"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

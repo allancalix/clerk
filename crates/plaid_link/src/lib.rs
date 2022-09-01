@@ -10,7 +10,7 @@ use axum::{
     Router,
 };
 use lazy_static::lazy_static;
-use rplaid::{client::Plaid, model::*, HttpClient};
+use rplaid::{client::Plaid, model::*};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use url::Url;
@@ -164,14 +164,14 @@ pub struct Token {
 
 use tokio::sync::broadcast;
 
-pub struct LinkServer<S: HttpClient> {
-    pub client: Plaid<S>,
+pub struct LinkServer {
+    pub client: Plaid,
     pub link_channel: broadcast::Sender<Token>,
     pub listener: broadcast::Receiver<Token>,
 }
 
-impl<S: HttpClient> LinkServer<S> {
-    pub fn new(client: Plaid<S>) -> Self {
+impl LinkServer {
+    pub fn new(client: Plaid) -> Self {
         let (tx, rx) = broadcast::channel(1);
 
         Self {
@@ -197,7 +197,7 @@ impl<S: HttpClient> LinkServer<S> {
 async fn initialize_link(
     mode: LinkMode,
     state: State,
-    client: Extension<Arc<Plaid<Box<dyn HttpClient>>>>,
+    client: Extension<Arc<Plaid>>,
 ) -> impl IntoResponse {
     let req = match &mode {
         LinkMode::Create => CreateLinkTokenRequest {
@@ -248,7 +248,7 @@ async fn initialize_link(
 async fn exchange_token<'a>(
     Path(token): Path<String>,
     state: State,
-    client: Extension<Arc<Plaid<Box<dyn HttpClient>>>>,
+    client: Extension<Arc<Plaid>>,
     on_exchange: Extension<broadcast::Sender<Token>>,
 ) -> Result<Html<&'a str>, LinkError> {
     let res = client

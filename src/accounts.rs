@@ -6,7 +6,10 @@ use anyhow::Result;
 use clap::ArgMatches;
 use futures::future::join_all;
 use rplaid::model::*;
-use rusty_money::{Money, iso::{self, Currency}};
+use rusty_money::{
+    iso::{self, Currency},
+    Money,
+};
 use tabwriter::TabWriter;
 
 use crate::model::ConfigFile;
@@ -73,9 +76,10 @@ async fn balances(conf: ConfigFile) -> Result<()> {
         .filter(|(t, _)| *t == &AccountType::Depository)
     {
         for b in v {
-            let currency_code = b.balances.iso_currency_code
-                .as_ref()
-                .map(|c| c.as_str())
+            let currency_code = b
+                .balances
+                .iso_currency_code
+                .as_deref()
                 .unwrap_or("USD");
             writeln!(
                 tw,
@@ -94,9 +98,10 @@ async fn balances(conf: ConfigFile) -> Result<()> {
         .filter(|(t, _)| *t == &AccountType::Credit)
     {
         for b in v {
-            let currency_code = b.balances.iso_currency_code
-                .as_ref()
-                .map(|c| c.as_str())
+            let currency_code = b
+                .balances
+                .iso_currency_code
+                .as_deref()
                 .unwrap_or("USD");
             writeln!(
                 tw,
