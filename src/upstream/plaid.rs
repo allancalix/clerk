@@ -4,7 +4,9 @@ use chrono::NaiveDate;
 use futures_util::pin_mut;
 use futures_util::StreamExt;
 use rplaid::client::Plaid;
-use rplaid::model::{self, Account, GetTransactionsOptions, GetTransactionsRequest};
+use rplaid::model::{
+    self, Account, SyncTransactionsRequest, SyncTransactionsRequestOptions, TransactionStream,
+};
 
 use crate::core::{Account as CoreAccount, Posting, Status, Transaction};
 use crate::upstream::{AccountSource, TransactionEntry, TransactionSource};
@@ -12,11 +14,16 @@ use crate::upstream::{AccountSource, TransactionEntry, TransactionSource};
 pub struct Source<'a> {
     pub(crate) client: &'a Plaid,
     pub(crate) token: String,
+    cursor: Option<String>,
 }
 
 impl<'a> Source<'a> {
-    pub fn new(client: &'a Plaid, token: String) -> Self {
-        Self { client, token }
+    pub fn new(client: &'a Plaid, token: String, cursor: Option<String>) -> Self {
+        Self {
+            client,
+            token,
+            cursor,
+        }
     }
 }
 
@@ -72,33 +79,52 @@ fn to_canonical_txn(tx: &model::Transaction) -> Result<Transaction> {
     })
 }
 
+impl<'a> Source<'a> {
+    pub fn next_cursor(self) -> String {
+        self.cursor
+            .expect("must call transactions on source before checking cursor")
+            .clone()
+    }
+}
+
 #[async_trait]
 impl<'a> TransactionSource<model::Transaction> for Source<'a> {
-    async fn transactions(
-        &self,
-        start: NaiveDate,
-        end: NaiveDate,
-    ) -> Result<Vec<TransactionEntry<model::Transaction>>> {
-        let start = start.format("%Y-%m-%d").to_string();
-        let end = end.format("%Y-%m-%d").to_string();
-
-        let tx_pages = self.client.transactions_iter(GetTransactionsRequest {
-            access_token: self.token.as_str(),
-            start_date: &start,
-            end_date: &end,
-            options: Some(GetTransactionsOptions {
-                count: Some(100),
-                offset: Some(0),
-                account_ids: None,
-                include_original_description: None,
+    async fn transactions(&mut self) -> Result<Vec<TransactionEntry<model::Transaction>>> {
+        let tx_pages = self.client.transactions_sync_iter(SyncTransactionsRequest {
+            access_token: self.token.clone(),
+            cursor: self.cursor.clone(),
+            count: Some(500),
+            options: Some(SyncTransactionsRequestOptions {
+                include_personal_finance_category: Some(true),
+                include_original_description: Some(false),
             }),
         });
         pin_mut!(tx_pages);
 
-        let mut tx_list = vec![];
-        while let Some(page) = tx_pages.next().await {
-            tx_list.extend_from_slice(&page?);
+        let tx_list = tx_pages
+            .fold(vec![], |mut acc, x| async move {
+                acc.append(&mut x.unwrap());
+                acc
+            })
+            .await;
+
+        if let Some(next_cursor) = tx_list.last() {
+            assert!(matches!(next_cursor, TransactionStream::Done(_)));
+
+            match next_cursor {
+                TransactionStream::Done(cursor) => self.cursor = Some(cursor.clone()),
+                _ => unreachable!(),
+            }
         }
+
+        let tx_list = tx_list
+            .into_iter()
+            .filter(|event| matches!(event, TransactionStream::Added(_)))
+            .map(|event| match event {
+                TransactionStream::Added(tx) => tx,
+                _ => unreachable!(),
+            })
+            .collect::<Vec<model::Transaction>>();
 
         Ok(tx_list
             .into_iter()

@@ -116,6 +116,7 @@ pub struct Link {
     pub access_token: String,
     pub item_id: String,
     pub state: LinkStatus,
+    pub sync_cursor: Option<String>,
     pub env: Environment,
 }
 

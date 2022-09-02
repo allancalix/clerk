@@ -46,6 +46,7 @@ where
             access_token: row.try_get("access_token")?,
             env: from_enum(row.try_get("environment")?).unwrap(),
             state: from_status_enum(row.try_get("link_state")?).unwrap(),
+            sync_cursor: row.try_get("sync_cursor")?,
         })
     }
 }
@@ -69,10 +70,11 @@ impl SqliteStore {
     }
 
     pub async fn update_link(&mut self, link: &Link) -> Result<()> {
-        sqlx::query("UPDATE plaid_links SET access_token = $1, link_state = $2, alias = $3 WHERE item_id = $4")
+        sqlx::query("UPDATE plaid_links SET access_token = $1, link_state = $2, alias = $3, sync_cursor = $4 WHERE item_id = $5")
             .bind(&link.access_token)
             .bind(to_status_enum(&link.state))
             .bind(&link.alias)
+            .bind(&link.sync_cursor)
             .bind(&link.item_id)
             .execute(&mut self.conn.acquire().await?).await?;
 
@@ -81,7 +83,7 @@ impl SqliteStore {
 
     pub async fn link(&mut self, id: &str) -> Result<Link> {
         let row = sqlx::query(
-            "SELECT item_id, alias, access_token, link_state, environment FROM plaid_links WHERE item_id = $1")
+            "SELECT item_id, alias, access_token, link_state, environment, link_state, sync_cursor FROM plaid_links WHERE item_id = $1")
         .bind(id)
         .fetch_one(&mut self.conn.acquire().await?)
         .await?;
@@ -91,7 +93,7 @@ impl SqliteStore {
 
     pub async fn links(&mut self) -> Result<Vec<Link>> {
         let rows = sqlx::query(
-            "SELECT item_id, alias, access_token, link_state, environment FROM plaid_links",
+            "SELECT item_id, alias, access_token, link_state, environment, sync_cursor FROM plaid_links",
         )
         .fetch_all(&mut self.conn.acquire().await?)
         .await?;
@@ -117,7 +119,7 @@ impl SqliteStore {
     }
 
     pub async fn delete_link(&mut self, id: &str) -> Result<Link> {
-        let row = sqlx::query("DELETE FROM plaid_links WHERE item_id = $1 RETURNING item_id, alias, access_token, link_state, environment")
+        let row = sqlx::query("DELETE FROM plaid_links WHERE item_id = $1 RETURNING item_id, alias, access_token, link_state, environment, sync_cursor")
             .bind(id)
             .fetch_one(&mut self.conn.acquire().await?).await?;
 
@@ -423,6 +425,7 @@ mod tests {
             access_token: "1234".to_string(),
             item_id: "plaid-id-123".to_string(),
             state: crate::plaid::LinkStatus::Active,
+            sync_cursor: None,
             env: Environment::Development,
         };
         store.save_link(&link).await.unwrap();

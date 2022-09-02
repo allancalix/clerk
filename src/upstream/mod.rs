@@ -2,7 +2,6 @@ pub mod plaid;
 
 use anyhow::Result;
 use axum::async_trait;
-use chrono::NaiveDate;
 use serde::Serialize;
 
 use crate::core::Transaction;
@@ -29,9 +28,5 @@ where
 
 #[async_trait]
 pub trait TransactionSource<T: Serialize> {
-    async fn transactions(
-        &self,
-        start: NaiveDate,
-        end: NaiveDate,
-    ) -> Result<Vec<TransactionEntry<T>>>;
+    async fn transactions(&mut self) -> Result<Vec<TransactionEntry<T>>>;
 }

@@ -82,6 +82,7 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode, name: &str) -> Res
                         access_token: token.access_token,
                         item_id: token.item_id,
                         state: LinkStatus::Active,
+                        sync_cursor: None,
                         env: conf.config().plaid.env.clone(),
                     })
                     .await
@@ -94,6 +95,7 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode, name: &str) -> Res
                         access_token: token.access_token,
                         item_id: token.item_id,
                         state: LinkStatus::Active,
+                        sync_cursor: None,
                         env: conf.config().plaid.env.clone(),
                     })
                     .await

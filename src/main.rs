@@ -50,13 +50,7 @@ async fn run() -> Result<()> {
             .subcommand_required(true)
             .about("pulls a set of transactions to the store")
             .subcommand(Command::new("sync")
-                .about("Pulls transactions from the given range, defaults to a weeks worth of transactions going back from today.")
-                .arg(arg!(begin: --begin [DATE] "The first day of transactions to pull, defaults to a week before today. Start date is inclusive."))
-                .arg(arg!(until: --until [DATE] "The last day of transactions to pull, defaults to today. End date is inclusive.")))
-            .subcommand(Command::new("print")
-                .about("Prints all synced transactions as Ledger records.")
-                .arg(arg!(begin: --begin [DATE] "The first day of Ledger records to generate."))
-                .arg(arg!(until: --until [DATE] "The last day of Ledger records to generate."))));
+                .about("Pulls transactions from the given range, defaults to a weeks worth of transactions going back from today.")));
 
     if app.clone().get_matches().is_present("verbose") {
         tracing_subscriber::registry()
