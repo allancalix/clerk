@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::Result;
 use axum::async_trait;
 use chrono::NaiveDate;
@@ -15,6 +17,8 @@ pub struct Source<'a> {
     pub(crate) client: &'a Plaid,
     pub(crate) token: String,
     cursor: Option<String>,
+    removed: HashSet<String>,
+    modified: HashSet<String>,
 }
 
 impl<'a> Source<'a> {
@@ -23,6 +27,8 @@ impl<'a> Source<'a> {
             client,
             token,
             cursor,
+            removed: Default::default(),
+            modified: Default::default(),
         }
     }
 }
@@ -85,6 +91,22 @@ impl<'a> Source<'a> {
             .expect("must call transactions on source before checking cursor")
             .clone()
     }
+
+    pub fn removed(&self) -> &HashSet<String> {
+        &self.removed
+    }
+
+    pub fn modified(&self) -> &HashSet<String> {
+        &self.modified
+    }
+
+    fn remove(&mut self, id: &str) {
+        self.removed.insert(id.to_string());
+    }
+
+    fn modify(&mut self, id: &str) {
+        self.modified.insert(id.to_string());
+    }
 }
 
 #[async_trait]
@@ -117,21 +139,38 @@ impl<'a> TransactionSource<model::Transaction> for Source<'a> {
             }
         }
 
-        let tx_list = tx_list
-            .into_iter()
-            .filter(|event| matches!(event, TransactionStream::Added(_)))
-            .map(|event| match event {
-                TransactionStream::Added(tx) => tx,
-                _ => unreachable!(),
-            })
-            .collect::<Vec<model::Transaction>>();
-
         Ok(tx_list
             .into_iter()
-            .map(|txn| TransactionEntry {
-                canonical: to_canonical_txn(&txn).unwrap(),
-                source: txn,
+            .filter_map(|e| match e {
+                TransactionStream::Added(txn) => {
+                    let entry = TransactionEntry {
+                        canonical: to_canonical_txn(&txn).unwrap(),
+                        source: txn,
+                    };
+
+                    Some(entry)
+                }
+                TransactionStream::Modified(txn) => {
+                    self.modify(&txn.transaction_id);
+
+                    let entry = TransactionEntry {
+                        canonical: to_canonical_txn(&txn).unwrap(),
+                        source: txn,
+                    };
+
+                    Some(entry)
+                }
+                TransactionStream::Removed(id) => {
+                    self.remove(&id);
+
+                    None
+                }
+                TransactionStream::Done(cursor) => {
+                    self.cursor = Some(cursor.clone());
+
+                    None
+                }
             })
-            .collect())
+            .collect::<Vec<TransactionEntry<model::Transaction>>>())
     }
 }

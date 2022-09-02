@@ -387,6 +387,7 @@ mod tests {
             access_token: "1234".to_string(),
             item_id: "plaid-id-123".to_string(),
             state: crate::plaid::LinkStatus::Active,
+            sync_cursor: None,
             env: Environment::Development,
         };
         let result = store.save_link(&link).await;
@@ -402,6 +403,7 @@ mod tests {
             access_token: "1234".to_string(),
             item_id: "plaid-id-123".to_string(),
             state: crate::plaid::LinkStatus::Active,
+            sync_cursor: None,
             env: Environment::Development,
         };
         store.save_link(&link).await.unwrap();
@@ -445,6 +447,7 @@ mod tests {
             access_token: "1234".to_string(),
             item_id: "plaid-id-123".to_string(),
             state: crate::plaid::LinkStatus::Active,
+            sync_cursor: None,
             env: Environment::Development,
         };
         store.save_link(&link).await.unwrap();
@@ -478,6 +481,7 @@ mod tests {
             access_token: "1234".to_string(),
             item_id: "plaid-id-123".to_string(),
             state: crate::plaid::LinkStatus::Active,
+            sync_cursor: None,
             env: Environment::Development,
         };
         store.save_link(&link).await.unwrap();

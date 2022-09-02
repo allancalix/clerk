@@ -4,11 +4,12 @@ use tracing::{debug, info};
 
 use crate::model::ConfigFile;
 use crate::plaid::{default_plaid_client, Link};
+use crate::store::SqliteStore;
 use crate::upstream::{plaid::Source, TransactionSource};
 
 #[tracing::instrument(skip(conf))]
 async fn pull(conf: ConfigFile) -> Result<()> {
-    let mut store = crate::store::SqliteStore::new(&conf.data_path()).await?;
+    let mut store = SqliteStore::new(&conf.data_path()).await?;
     let plaid = default_plaid_client(&conf);
     let links: Vec<Link> = store.links().await?;
 
@@ -47,6 +48,9 @@ async fn pull(conf: ConfigFile) -> Result<()> {
                 }
             }
         }
+
+        info!("{} transactions modified.", upstream.modified().len());
+        info!("{} transactions removed.", upstream.removed().len());
 
         let updated_link = Link {
             sync_cursor: Some(upstream.next_cursor()),
