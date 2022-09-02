@@ -91,12 +91,16 @@ async fn balances(conf: ConfigFile) -> Result<()> {
                 tw,
                 "{}\t{}\t{}",
                 b.name,
-                b.balances.available.map(|amount| {
-                    Money::from_decimal(amount, currency_code)
-                }).as_ref().unwrap_or(&ZERO_DOLLARS),
-                b.balances.current.map(|amount| {
-                    Money::from_decimal(amount, currency_code)
-                }).as_ref().unwrap_or(&ZERO_DOLLARS),
+                b.balances
+                    .available
+                    .map(|amount| { Money::from_decimal(amount, currency_code) })
+                    .as_ref()
+                    .unwrap_or(&ZERO_DOLLARS),
+                b.balances
+                    .current
+                    .map(|amount| { Money::from_decimal(amount, currency_code) })
+                    .as_ref()
+                    .unwrap_or(&ZERO_DOLLARS),
             )?;
         }
     }
@@ -118,12 +122,16 @@ async fn balances(conf: ConfigFile) -> Result<()> {
                 tw,
                 "{}\t{}\t{}",
                 b.name,
-                b.balances.available.map(|amount| {
-                    Money::from_decimal(amount, currency_code)
-                }).as_ref().unwrap_or(&ZERO_DOLLARS),
-                b.balances.current.map(|amount| {
-                    Money::from_decimal(amount, currency_code)
-                }).as_ref().unwrap_or(&ZERO_DOLLARS),
+                b.balances
+                    .available
+                    .map(|amount| { Money::from_decimal(amount, currency_code) })
+                    .as_ref()
+                    .unwrap_or(&ZERO_DOLLARS),
+                b.balances
+                    .current
+                    .map(|amount| { Money::from_decimal(amount, currency_code) })
+                    .as_ref()
+                    .unwrap_or(&ZERO_DOLLARS),
             )?;
         }
     }

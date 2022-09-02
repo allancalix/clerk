@@ -1,7 +1,7 @@
 use anyhow::Result;
 use chrono::prelude::*;
 use clap::ArgMatches;
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::model::ConfigFile;
 use crate::plaid::{default_plaid_client, Link};
@@ -20,17 +20,42 @@ async fn pull(start: &str, end: &str, conf: ConfigFile) -> Result<()> {
         let upstream = Source::new(&plaid, link.access_token.clone());
 
         info!("Pulling transactions for item {}.", link.item_id);
+        let mut count = 0;
         for tx in upstream.transactions(start_date, end_date).await? {
+            if !tx.source.pending {
+                if let Some(pending_txn_id) = &tx.source.pending_transaction_id {
+                    let canonical_id = store.tx_by_plaid_id(&link.item_id, pending_txn_id).await?;
+
+                    info!("update of existing transaction. id={:?}", canonical_id);
+                }
+            }
+
             let result = store
                 .save_tx(&link.item_id, &tx.source.transaction_id, &tx)
                 .await;
 
-            if result.contains_err(&crate::store::Error::AlreadyExists) {
-                continue;
-            }
+            match result {
+                Ok(_) => {
+                    count += 1;
+                }
+                Err(crate::store::Error::AlreadyExists) => {
+                    debug!(
+                        "Transaction with id {} already exists, skipping.",
+                        &tx.source.transaction_id
+                    );
 
-            result?
+                    continue;
+                }
+                Err(e) => {
+                    return Err(e.into());
+                }
+            }
         }
+
+        info!(
+            "Inserted {} new transactions for item {}.",
+            count, link.item_id
+        );
     }
 
     Ok(())

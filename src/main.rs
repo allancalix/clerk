@@ -31,7 +31,7 @@ async fn run() -> Result<()> {
         .subcommand_required(true)
         .allow_external_subcommands(false)
         .arg(arg!(CONFIG: -c --config [FILE] "Sets a custom config file"))
-        .arg(arg!(verbose: -v --verbose [Boolean] "Sets the level of verbosity"))
+        .arg(arg!(verbose: -d --debug ... "Outputs debug logging information."))
         .subcommand(Command::new("init").about("Initialize CLI for use."))
         .subcommand(Command::new("link")
             .about("Links a new account for tracking.")
@@ -58,7 +58,7 @@ async fn run() -> Result<()> {
                 .arg(arg!(begin: --begin [DATE] "The first day of Ledger records to generate."))
                 .arg(arg!(until: --until [DATE] "The last day of Ledger records to generate."))));
 
-    if app.clone().get_matches().value_of("verbose") == Some("true") {
+    if app.clone().get_matches().is_present("verbose") {
         tracing_subscriber::registry()
             .with(
                 EnvFilter::builder()
