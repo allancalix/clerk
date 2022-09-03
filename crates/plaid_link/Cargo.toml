@@ -10,10 +10,10 @@ base64 = "0.13"
 hyper = { version = "0.14", features = ["client"] }
 lazy_static = "1.4"
 rplaid = { git = "https://github.com/allancalix/rplaid.git", branch = "main" }
-thiserror = "1.0"
-tokio = { version = "1.20", features = ["rt-multi-thread", "signal"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+thiserror = "1.0"
+tokio = { version = "1.20", features = ["rt-multi-thread", "signal"] }
 url = "2.2"
 
 [dev-dependencies]

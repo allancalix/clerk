@@ -41,9 +41,6 @@ institution. This is done by serving [Plaid Link][] on your local machine to
 perform authentication.
 
 ```sh
-# Initializes a configuration file with interactive shell prompts.
-clerk init
-
 # Link a new account to Plaid.
 clerk link
 # Refresh a linked accounts status, periodically required for some accounts
@@ -62,13 +59,10 @@ clerk link delete <ITEM_ID>
 Commands for interacting with transaction data for all tracked accounts.
 
 ```sh
-# Pulls all transaction data for all accounts tracked in the given time range. By
-# default, this command pulls the last 2 weeks of transactions. Time range can be
-# manipulated using the --begin and --until commands.
+# Syncs transactions for all tracked accounts with upstream data. The first sync
+# may take a few seconds (it pulls up to 24 months of transaction history). Each
+# consecutive sync will only pull the latest data and should take less time.
 clerk txn sync
-
-# Filtering the first two weeks of September.
-clerk txn sync --begin 2021-09-01 --until 2021-09-14
 ```
 
 ### Accounts
@@ -95,7 +89,6 @@ encryption tool like [age](https://github.com/FiloSottile/age).
 
 ## Roadmap
 - [ ] Automatic transaction deduping between linked accounts
-- [ ] Expand upstream data sources (e.g. csv imports, Stripe, etc)
 - [ ] Expand on storage options (e.g. encryption / remote-storage)
 
 ## Troubleshooting
