@@ -1,4 +1,4 @@
-use sea_query::{Iden, Query, SqliteQueryBuilder};
+use sea_query::{func::Func, types::Alias, Expr, Iden, Query, SqliteQueryBuilder};
 sea_query::sea_query_driver_sqlite!();
 use sea_query_driver_sqlite::bind_query;
 use serde::Serialize;
@@ -14,6 +14,14 @@ enum Transactions {
     Source,
 }
 
+struct JsonExtract;
+
+impl Iden for JsonExtract {
+    fn unquoted(&self, s: &mut dyn std::fmt::Write) {
+        write!(s, "JSON_EXTRACT").unwrap();
+    }
+}
+
 pub struct Store<'a>(&'a mut SqliteStore);
 
 impl<'a> Store<'a> {
@@ -22,17 +30,28 @@ impl<'a> Store<'a> {
     }
 
     pub async fn by_upstream_id(&mut self, id: &str) -> Result<Option<String>> {
-        Ok(sqlx::query(
-            r#"
-            SELECT JSON_EXTRACT(source, '$.transaction_id') as upstream_id
-            FROM transactions
-            WHERE upstream_id = $1
-        "#,
-        )
-        .bind(id)
-        .fetch_optional(&mut self.0.conn.acquire().await?)
-        .await?
-        .map(|row| row.try_get("upstream_id").unwrap()))
+        #[derive(Iden)]
+        enum TransactionsLocal {
+            UpstreamId,
+        }
+
+        let (query, values) = Query::select()
+            .expr_as(
+                Func::cust(JsonExtract).args(vec![
+                    Expr::col(Transactions::Source),
+                    Expr::val("$.transaction_id"),
+                ]),
+                Alias::new(&TransactionsLocal::UpstreamId.to_string()),
+            )
+            .columns([Transactions::Id])
+            .from(Transactions::Table)
+            .and_where(Expr::col(TransactionsLocal::UpstreamId).eq(id))
+            .build(SqliteQueryBuilder);
+
+        Ok(bind_query(sqlx::query(&query), &values)
+            .fetch_optional(&mut self.0.conn.acquire().await?)
+            .await?
+            .map(|row| row.try_get("id").unwrap()))
     }
 
     pub async fn save<S: Serialize>(

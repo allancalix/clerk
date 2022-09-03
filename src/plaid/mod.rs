@@ -59,7 +59,10 @@ impl LinkController {
 
                     let mut accounts = vec![];
                     for upstream in upstream_clients {
-                        if let Some(account) = local_clients.iter().find(|acc| acc.id == upstream.account_id) {
+                        if let Some(account) = local_clients
+                            .iter()
+                            .find(|acc| acc.id == upstream.account_id)
+                        {
                             accounts.push(account.clone());
 
                             continue;
@@ -72,7 +75,7 @@ impl LinkController {
                     }
 
                     accounts
-                },
+                }
                 _ => vec![],
             };
 

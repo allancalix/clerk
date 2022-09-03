@@ -45,7 +45,7 @@ fn default_data_path() -> String {
 
 pub(crate) fn default_config_path() -> String {
     dirs::config_dir()
-        .unwrap_or(std::env::current_dir().expect("read current working dir"))
+        .unwrap_or_else(|| std::env::current_dir().expect("read current working dir"))
         .join(CLIENT_NAME)
         .join(CONFIG_NAME)
         .display()

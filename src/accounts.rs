@@ -23,6 +23,7 @@ lazy_static! {
 #[derive(Eq, PartialEq)]
 struct AccountTypeWrapper(AccountType);
 
+#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for AccountTypeWrapper {
     fn hash<H: Hasher>(&self, state: &mut H) {
         format!("{:?}", self.0).hash(state);
