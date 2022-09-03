@@ -1,11 +1,8 @@
-#![feature(result_contains_err)]
-#[allow(clippy::derive_hash_xor_eq)]
 mod accounts;
 mod core;
-mod init;
 mod link;
-mod model;
 mod plaid;
+mod settings;
 mod store;
 mod txn;
 mod upstream;
@@ -16,8 +13,6 @@ use tracing_subscriber::{
     filter::LevelFilter, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter,
 };
 use tracing_tree::HierarchicalLayer;
-
-use crate::model::ConfigFile;
 
 static CLIENT_NAME: &str = "clerk";
 static COUNTRY_CODES: [&str; 1] = ["US"];
@@ -52,7 +47,8 @@ async fn run() -> Result<()> {
             .subcommand(Command::new("sync")
                 .about("Pulls transactions from the given range, defaults to a weeks worth of transactions going back from today.")));
 
-    if app.clone().get_matches().is_present("verbose") {
+    let matches = app.get_matches();
+    if matches.is_present("verbose") {
         tracing_subscriber::registry()
             .with(
                 EnvFilter::builder()
@@ -68,21 +64,16 @@ async fn run() -> Result<()> {
             .init();
     }
 
-    match app.clone().get_matches().subcommand() {
-        Some(("init", _link_matches)) => {
-            init::run(app.get_matches().value_of("CONFIG")).await?;
-        }
+    let s = settings::Settings::new(matches.value_of("CONFIG"))?;
+    match matches.subcommand() {
         Some(("link", link_matches)) => {
-            let conf = ConfigFile::read(app.get_matches().value_of("CONFIG"))?;
-            link::run(link_matches, conf).await?;
+            link::run(link_matches, s).await?;
         }
         Some(("txn", link_matches)) => {
-            let conf = ConfigFile::read(app.get_matches().value_of("CONFIG"))?;
-            txn::run(link_matches, conf).await?;
+            txn::run(link_matches, s).await?;
         }
         Some(("account", link_matches)) => {
-            let conf = ConfigFile::read(app.get_matches().value_of("CONFIG"))?;
-            accounts::run(link_matches, conf).await?;
+            accounts::run(link_matches, s).await?;
         }
         None => unreachable!("subcommand is required"),
         _ => unreachable!(),

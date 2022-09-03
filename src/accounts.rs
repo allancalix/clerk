@@ -13,8 +13,8 @@ use rusty_money::{
 };
 use tabwriter::TabWriter;
 
-use crate::model::ConfigFile;
 use crate::plaid::{default_plaid_client, Link};
+use crate::settings::Settings;
 
 lazy_static! {
     static ref ZERO_DOLLARS: Money<'static, Currency> = Money::from_minor(0_i64, iso::USD);
@@ -35,9 +35,9 @@ impl PartialEq<AccountType> for AccountTypeWrapper {
     }
 }
 
-async fn print(conf: ConfigFile) -> Result<()> {
-    let plaid = default_plaid_client(&conf);
-    let store = crate::store::SqliteStore::new(&conf.data_path()).await?;
+async fn print(settings: Settings) -> Result<()> {
+    let plaid = default_plaid_client(&settings);
+    let store = crate::store::SqliteStore::new(&settings.db_file).await?;
 
     let link_controller = crate::plaid::LinkController::new(plaid, store).await?;
 
@@ -48,9 +48,9 @@ async fn print(conf: ConfigFile) -> Result<()> {
     Ok(())
 }
 
-async fn balances(conf: ConfigFile) -> Result<()> {
-    let mut store = crate::store::SqliteStore::new(&conf.data_path()).await?;
-    let plaid = default_plaid_client(&conf);
+async fn balances(settings: Settings) -> Result<()> {
+    let mut store = crate::store::SqliteStore::new(&settings.db_file).await?;
+    let plaid = default_plaid_client(&settings);
 
     let links: Vec<Link> = store.links().list().await?;
 
@@ -141,10 +141,10 @@ async fn balances(conf: ConfigFile) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn run(matches: &ArgMatches, conf: ConfigFile) -> Result<()> {
+pub(crate) async fn run(matches: &ArgMatches, settings: Settings) -> Result<()> {
     match matches.subcommand() {
-        Some(("balances", _link_matches)) => balances(conf).await,
-        None => print(conf).await,
+        Some(("balances", _link_matches)) => balances(settings).await,
+        None => print(settings).await,
         _ => unreachable!(),
     }
 }

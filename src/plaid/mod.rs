@@ -5,7 +5,7 @@ use rplaid::client::{Builder, Credentials, Plaid};
 use tabwriter::TabWriter;
 use tracing::{info, warn};
 
-use crate::model::ConfigFile;
+use crate::settings::Settings;
 use crate::COUNTRY_CODES;
 
 pub struct LinkController {
@@ -107,13 +107,13 @@ impl LinkController {
     }
 }
 
-pub(crate) fn default_plaid_client(conf: &ConfigFile) -> rplaid::client::Plaid {
+pub(crate) fn default_plaid_client(settings: &Settings) -> rplaid::client::Plaid {
     Builder::new()
         .with_credentials(Credentials {
-            client_id: conf.config().plaid.client_id.clone(),
-            secret: conf.config().plaid.secret.clone(),
+            client_id: settings.plaid.client_id.clone(),
+            secret: settings.plaid.secret.clone(),
         })
-        .with_env(conf.config().plaid.env.clone())
+        .with_env(settings.plaid.env.clone())
         .build()
 }
 

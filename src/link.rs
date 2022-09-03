@@ -7,8 +7,8 @@ use plaid_link::{LinkMode, State};
 use tokio::signal;
 use tokio::time::{sleep_until, Duration, Instant};
 
-use crate::model::ConfigFile;
 use crate::plaid::{default_plaid_client, Link, LinkController, LinkStatus};
+use crate::settings::Settings;
 use crate::store;
 
 const LINK_NAME_KEY: &str = "link_name";
@@ -51,14 +51,14 @@ async fn shutdown_signal(rx: Receiver<()>) {
     println!("signal received, starting graceful shutdown");
 }
 
-async fn server(conf: ConfigFile, mode: plaid_link::LinkMode, name: &str) -> Result<()> {
-    let plaid = default_plaid_client(&conf);
+async fn server(settings: Settings, mode: plaid_link::LinkMode, name: &str) -> Result<()> {
+    let plaid = default_plaid_client(&settings);
 
     let (tx, rx) = bounded(1);
     let server = plaid_link::LinkServer::new(plaid);
 
     let mut listener = server.on_exchange();
-    let mut store = store::SqliteStore::new(&conf.data_path()).await?;
+    let mut store = store::SqliteStore::new(&settings.db_file).await?;
     let link = match &mode {
         plaid_link::LinkMode::Update(s) => Some(store.links().link(s).await?),
         plaid_link::LinkMode::Create => None,
@@ -100,7 +100,7 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode, name: &str) -> Res
                     .await
                     .unwrap();
 
-                let plaid = default_plaid_client(&conf);
+                let plaid = default_plaid_client(&settings);
                 for acc in plaid.accounts(token.access_token).await.unwrap() {
                     store
                         .accounts()
@@ -150,9 +150,9 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode, name: &str) -> Res
     Ok(())
 }
 
-async fn remove(conf: ConfigFile, item_id: &str) -> Result<()> {
-    let mut store = store::SqliteStore::new(&conf.data_path()).await?;
-    let plaid = default_plaid_client(&conf);
+async fn remove(settings: Settings, item_id: &str) -> Result<()> {
+    let mut store = store::SqliteStore::new(&settings.db_file).await?;
+    let plaid = default_plaid_client(&settings);
 
     let link = store.links().link(item_id).await?;
     plaid.item_del(&link.access_token).await?;
@@ -161,9 +161,9 @@ async fn remove(conf: ConfigFile, item_id: &str) -> Result<()> {
     Ok(())
 }
 
-async fn status(conf: ConfigFile) -> Result<()> {
-    let store = store::SqliteStore::new(&conf.data_path()).await?;
-    let plaid = default_plaid_client(&conf);
+async fn status(settings: Settings) -> Result<()> {
+    let store = store::SqliteStore::new(&settings.db_file).await?;
+    let plaid = default_plaid_client(&settings);
 
     let link_controller = LinkController::new(plaid, store).await?;
 
@@ -172,23 +172,28 @@ async fn status(conf: ConfigFile) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn run(matches: &ArgMatches, conf: ConfigFile) -> Result<()> {
+pub(crate) async fn run(matches: &ArgMatches, settings: Settings) -> Result<()> {
     match matches.subcommand() {
-        Some(("status", _status_matches)) => status(conf).await,
+        Some(("status", _status_matches)) => status(settings).await,
         Some(("delete", remove_matches)) => {
             // SAFETY: This should be fine so long as this is a positional
             // argument as clap will prevent this code from executing without a
             // value.
             let item_id = remove_matches.value_of("item_id").unwrap();
-            remove(conf, item_id).await
+            remove(settings, item_id).await
         }
         _ => {
             let name = matches.value_of("name").unwrap_or("");
             match matches.value_of("update") {
                 Some(token) => {
-                    server(conf, plaid_link::LinkMode::Update(token.to_string()), name).await
+                    server(
+                        settings,
+                        plaid_link::LinkMode::Update(token.to_string()),
+                        name,
+                    )
+                    .await
                 }
-                None => server(conf, plaid_link::LinkMode::Create, name).await,
+                None => server(settings, plaid_link::LinkMode::Create, name).await,
             }
         }
     }

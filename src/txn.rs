@@ -2,15 +2,15 @@ use anyhow::Result;
 use clap::ArgMatches;
 use tracing::info;
 
-use crate::model::ConfigFile;
 use crate::plaid::{default_plaid_client, Link};
+use crate::settings::Settings;
 use crate::store::SqliteStore;
 use crate::upstream::{plaid::Source, TransactionSource};
 
-#[tracing::instrument(skip(conf))]
-async fn pull(conf: ConfigFile) -> Result<()> {
-    let mut store = SqliteStore::new(&conf.data_path()).await?;
-    let plaid = default_plaid_client(&conf);
+#[tracing::instrument]
+async fn pull(settings: Settings) -> Result<()> {
+    let mut store = SqliteStore::new(&settings.db_file).await?;
+    let plaid = default_plaid_client(&settings);
     let links: Vec<Link> = store.links().list().await?;
 
     for link in links {
@@ -56,9 +56,9 @@ async fn pull(conf: ConfigFile) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn run(matches: &ArgMatches, conf: ConfigFile) -> Result<()> {
+pub(crate) async fn run(matches: &ArgMatches, settings: Settings) -> Result<()> {
     match matches.subcommand() {
-        Some(("sync", _link_matches)) => pull(conf).await,
+        Some(("sync", _link_matches)) => pull(settings).await,
         None => unreachable!("command is requires"),
         _ => unreachable!(),
     }
