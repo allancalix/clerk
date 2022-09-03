@@ -10,7 +10,7 @@ use rplaid::model::{
     self, Account, SyncTransactionsRequest, SyncTransactionsRequestOptions, TransactionStream,
 };
 
-use crate::core::{Account as CoreAccount, Posting, Status, Transaction};
+use crate::core::{Status, Transaction};
 use crate::upstream::{AccountSource, TransactionEntry, TransactionSource};
 
 pub struct Source<'a> {
@@ -41,38 +41,10 @@ impl<'a> AccountSource for Source<'a> {
 }
 
 fn to_canonical_txn(tx: &model::Transaction) -> Result<Transaction> {
-    let currency = tx
-        .iso_currency_code
-        .as_ref()
-        .and_then(|c| rusty_money::iso::find(c))
-        .unwrap_or(rusty_money::iso::USD);
-
-    let amount = rusty_money::Money::from_str(&tx.amount.to_string(), currency).unwrap();
-    let source_posting = Posting {
-        units: amount.clone(),
-        account: CoreAccount(tx.account_id.to_string()),
-        status: Status::Resolved,
-        meta: Default::default(),
-    };
-
-    let double = amount.clone() * 2;
-    let balance_amount = if amount.is_negative() {
-        amount + double
-    } else {
-        amount - double
-    };
-    let dest_posting = Posting {
-        units: balance_amount,
-        account: CoreAccount("Expenses:Unknown".to_string()),
-        status: Status::Resolved,
-        meta: Default::default(),
-    };
-
     Ok(Transaction {
         id: ulid::Ulid::new(),
         date: NaiveDate::parse_from_str(&tx.date, "%Y-%m-%d").unwrap(),
         narration: tx.name.clone(),
-        postings: vec![source_posting, dest_posting],
         status: if tx.pending {
             Status::Pending
         } else {
@@ -89,7 +61,6 @@ impl<'a> Source<'a> {
     pub fn next_cursor(self) -> String {
         self.cursor
             .expect("must call transactions on source before checking cursor")
-            .clone()
     }
 
     pub fn removed(&self) -> &HashSet<String> {
@@ -166,7 +137,7 @@ impl<'a> TransactionSource<model::Transaction> for Source<'a> {
                     None
                 }
                 TransactionStream::Done(cursor) => {
-                    self.cursor = Some(cursor.clone());
+                    self.cursor = Some(cursor);
 
                     None
                 }

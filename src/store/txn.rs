@@ -1,0 +1,161 @@
+use sea_query::{Iden, Query, SqliteQueryBuilder};
+sea_query::sea_query_driver_sqlite!();
+use sea_query_driver_sqlite::bind_query;
+use serde::Serialize;
+use sqlx::{Connection, Row};
+
+use super::{Result, SqliteStore, TransactionEntry};
+
+#[derive(Iden)]
+enum Transactions {
+    Table,
+    Id,
+    AccountId,
+    Source,
+}
+
+pub struct Store<'a>(&'a mut SqliteStore);
+
+impl<'a> Store<'a> {
+    pub fn new(store: &'a mut SqliteStore) -> Self {
+        Self(store)
+    }
+
+    pub async fn by_upstream_id(&mut self, id: &str) -> Result<Option<String>> {
+        Ok(sqlx::query(
+            r#"
+            SELECT JSON_EXTRACT(source, '$.transaction_id') as upstream_id
+            FROM transactions
+            WHERE upstream_id = $1
+        "#,
+        )
+        .bind(id)
+        .fetch_optional(&mut self.0.conn.acquire().await?)
+        .await?
+        .map(|row| row.try_get("upstream_id").unwrap()))
+    }
+
+    pub async fn save<S: Serialize>(
+        &mut self,
+        account_id: &str,
+        tx: &TransactionEntry<S>,
+    ) -> Result<()> {
+        let source = tx.serialize_string()?;
+        let canonical = tx.canonical.clone();
+        let account_id = account_id.to_string();
+
+        self.0
+            .conn
+            .acquire()
+            .await?
+            .transaction(|conn| {
+                Box::pin(async move {
+                    let (query, values) = Query::insert()
+                        .into_table(Transactions::Table)
+                        .columns([
+                            Transactions::Id,
+                            Transactions::AccountId,
+                            Transactions::Source,
+                        ])
+                        .values_panic(vec![
+                            canonical.id.to_string().into(),
+                            account_id.into(),
+                            source.into(),
+                        ])
+                        .build(SqliteQueryBuilder);
+
+                    bind_query(sqlx::query(&query), &values)
+                        .execute(conn)
+                        .await?;
+
+                    Ok(())
+                })
+            })
+            .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::NaiveDate;
+    use rplaid::model::Transaction as PlaidTransaction;
+    use ulid::Ulid;
+
+    use crate::core::{Account, Status, Transaction};
+    use crate::plaid::Link;
+
+    use super::*;
+
+    fn plaid_transaction() -> PlaidTransaction {
+        PlaidTransaction {
+            transaction_type: "".to_string(),
+            pending_transaction_id: None,
+            category_id: None,
+            category: None,
+            location: None,
+            payment_meta: None,
+            account_owner: None,
+            name: "".to_string(),
+            original_description: None,
+            account_id: "test-account-id".to_string(),
+            amount: 33.into(),
+            iso_currency_code: None,
+            unofficial_currency_code: None,
+            date: "2022-05-01".to_string(),
+            pending: false,
+            transaction_id: "1234-test".to_string(),
+            payment_channel: "".to_string(),
+            merchant_name: None,
+            authorized_date: None,
+            authorized_datetime: None,
+            datetime: None,
+            check_number: None,
+            transaction_code: None,
+        }
+    }
+
+    async fn test_store() -> SqliteStore {
+        SqliteStore::new("sqlite::memory:").await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn save_transaction() {
+        let mut store = test_store().await;
+        let link = Link {
+            alias: "test_link".to_string(),
+            access_token: "1234".to_string(),
+            item_id: "plaid-id-123".to_string(),
+            state: crate::plaid::LinkStatus::Active,
+            sync_cursor: None,
+        };
+        store.links().save(&link).await.unwrap();
+        store
+            .accounts()
+            .save(
+                &link.item_id,
+                &Account {
+                    id: "test-account-id".into(),
+                    ty: "CREDIT_NORMAL".into(),
+                    name: "Test Account".into(),
+                },
+            )
+            .await
+            .unwrap();
+
+        let entry = TransactionEntry {
+            canonical: Transaction {
+                id: Ulid::new(),
+                date: NaiveDate::parse_from_str("2022-05-01", "%Y-%m-%d").unwrap(),
+                narration: "Test Transaction".to_string(),
+                payee: None,
+                links: Default::default(),
+                tags: Default::default(),
+                meta: Default::default(),
+                status: Status::Resolved,
+            },
+            source: plaid_transaction(),
+        };
+
+        store.txns().save("test-account-id", &entry).await.unwrap();
+    }
+}

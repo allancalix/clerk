@@ -10,16 +10,16 @@ use super::{Result, SqliteStore};
 #[derive(Iden)]
 enum PlaidLinks {
     Table,
-    ItemId,
+    Id,
     Alias,
     AccessToken,
     LinkState,
     SyncCursor,
 }
 
-pub struct LinkStore<'a>(&'a mut SqliteStore);
+pub struct Store<'a>(&'a mut SqliteStore);
 
-impl<'a> LinkStore<'a> {
+impl<'a> Store<'a> {
     pub fn new(store: &'a mut SqliteStore) -> Self {
         Self(store)
     }
@@ -33,7 +33,7 @@ impl<'a> LinkStore<'a> {
                 (PlaidLinks::LinkState, to_status_enum(&link.state).into()),
                 (PlaidLinks::SyncCursor, link.sync_cursor.as_deref().into()),
             ])
-            .and_where(Expr::col(PlaidLinks::ItemId).eq(link.item_id.as_str()))
+            .and_where(Expr::col(PlaidLinks::Id).eq(link.item_id.as_str()))
             .build(SqliteQueryBuilder);
 
         bind_query(sqlx::query(&query), &values)
@@ -46,14 +46,14 @@ impl<'a> LinkStore<'a> {
     pub async fn link(&mut self, id: &str) -> Result<Link> {
         let (query, values) = Query::select()
             .columns([
-                PlaidLinks::ItemId,
+                PlaidLinks::Id,
                 PlaidLinks::Alias,
                 PlaidLinks::AccessToken,
                 PlaidLinks::LinkState,
                 PlaidLinks::SyncCursor,
             ])
             .from(PlaidLinks::Table)
-            .and_where(Expr::col(PlaidLinks::ItemId).eq(id))
+            .and_where(Expr::col(PlaidLinks::Id).eq(id))
             .build(SqliteQueryBuilder);
 
         let row = bind_query(sqlx::query(&query), &values)
@@ -66,7 +66,7 @@ impl<'a> LinkStore<'a> {
     pub async fn list(&mut self) -> Result<Vec<Link>> {
         let (query, values) = Query::select()
             .columns([
-                PlaidLinks::ItemId,
+                PlaidLinks::Id,
                 PlaidLinks::Alias,
                 PlaidLinks::AccessToken,
                 PlaidLinks::LinkState,
@@ -91,7 +91,7 @@ impl<'a> LinkStore<'a> {
         let (query, values) = Query::insert()
             .into_table(PlaidLinks::Table)
             .columns([
-                PlaidLinks::ItemId,
+                PlaidLinks::Id,
                 PlaidLinks::Alias,
                 PlaidLinks::AccessToken,
                 PlaidLinks::LinkState,
@@ -114,9 +114,9 @@ impl<'a> LinkStore<'a> {
     pub async fn delete(&mut self, id: &str) -> Result<Link> {
         let (query, values) = Query::delete()
             .from_table(PlaidLinks::Table)
-            .and_where(Expr::col(PlaidLinks::ItemId).eq(id))
+            .and_where(Expr::col(PlaidLinks::Id).eq(id))
             .returning(Query::returning().columns([
-                PlaidLinks::ItemId,
+                PlaidLinks::Id,
                 PlaidLinks::Alias,
                 PlaidLinks::AccessToken,
                 PlaidLinks::LinkState,
@@ -139,7 +139,7 @@ where
 {
     fn from_row(row: &'r R) -> ::std::result::Result<Self, sqlx::Error> {
         Ok(Link {
-            item_id: row.try_get("item_id")?,
+            item_id: row.try_get("id")?,
             alias: row.try_get("alias")?,
             access_token: row.try_get("access_token")?,
             state: from_status_enum(row.try_get("link_state")?).unwrap(),
@@ -164,19 +164,25 @@ fn from_status_enum(status: &str) -> anyhow::Result<LinkStatus> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use ulid::Ulid;
 
     use crate::plaid::Link;
 
     use super::SqliteStore;
 
-    struct TestStore {
+    pub(crate) struct TestStore {
         store: SqliteStore,
     }
 
     impl TestStore {
-        pub async fn new_link(&mut self) -> Link {
+        pub(crate) async fn new() -> Self {
+            TestStore {
+                store: SqliteStore::new("sqlite::memory:").await.unwrap(),
+            }
+        }
+
+        pub(crate) async fn new_link(&mut self) -> Link {
             let link = Link {
                 alias: "test_link".to_string(),
                 access_token: "access-token-1234".to_string(),
@@ -190,7 +196,7 @@ mod tests {
             link
         }
 
-        fn db(&mut self) -> &mut SqliteStore {
+        pub(crate) fn db(&mut self) -> &mut SqliteStore {
             &mut self.store
         }
     }

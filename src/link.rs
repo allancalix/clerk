@@ -93,13 +93,22 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode, name: &str) -> Res
                     .links()
                     .save(&Link {
                         alias: name,
-                        access_token: token.access_token,
-                        item_id: token.item_id,
+                        access_token: token.access_token.clone(),
+                        item_id: token.item_id.clone(),
                         state: LinkStatus::Active,
                         sync_cursor: None,
                     })
                     .await
                     .unwrap();
+
+                let plaid = default_plaid_client(&conf);
+                for acc in plaid.accounts(token.access_token).await.unwrap() {
+                    store
+                        .accounts()
+                        .save(&token.item_id, &acc.into())
+                        .await
+                        .unwrap();
+                }
             }
         }
 

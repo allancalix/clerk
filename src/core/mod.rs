@@ -1,3 +1,5 @@
+mod account;
 mod txn;
 
-pub use txn::{Account, Posting, Status, Transaction};
+pub use account::Account;
+pub use txn::{Status, Transaction};

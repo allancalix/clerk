@@ -21,15 +21,13 @@ async fn pull(conf: ConfigFile) -> Result<()> {
         for tx in upstream.transactions().await? {
             if !tx.source.pending {
                 if let Some(pending_txn_id) = &tx.source.pending_transaction_id {
-                    let canonical_id = store.tx_by_plaid_id(&link.item_id, pending_txn_id).await?;
+                    let canonical_id = store.txns().by_upstream_id(pending_txn_id).await?;
 
                     info!("update of existing transaction. id={:?}", canonical_id);
                 }
             }
 
-            let result = store
-                .save_tx(&link.item_id, &tx.source.transaction_id, &tx)
-                .await;
+            let result = store.txns().save(&tx.source.account_id, &tx).await;
 
             match result {
                 Ok(_) => {
@@ -56,7 +54,7 @@ async fn pull(conf: ConfigFile) -> Result<()> {
             sync_cursor: Some(upstream.next_cursor()),
             ..link
         };
-        if &updated_link.sync_cursor != &link.sync_cursor {
+        if updated_link.sync_cursor != link.sync_cursor {
             info!(
                 "Updating link with latest cursor. cursor={:?}",
                 &updated_link.sync_cursor
