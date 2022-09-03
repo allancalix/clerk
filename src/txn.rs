@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::ArgMatches;
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::model::ConfigFile;
 use crate::plaid::{default_plaid_client, Link};
@@ -27,24 +27,9 @@ async fn pull(conf: ConfigFile) -> Result<()> {
                 }
             }
 
-            let result = store.txns().save(&tx.source.account_id, &tx).await;
+            store.txns().save(&tx.source.account_id, &tx).await?;
 
-            match result {
-                Ok(_) => {
-                    count += 1;
-                }
-                Err(crate::store::Error::AlreadyExists) => {
-                    debug!(
-                        "Transaction with id {} already exists, skipping.",
-                        &tx.source.transaction_id
-                    );
-
-                    continue;
-                }
-                Err(e) => {
-                    return Err(e.into());
-                }
-            }
+            count += 1;
         }
 
         info!("{} transactions modified.", upstream.modified().len());

@@ -36,11 +36,10 @@ impl PartialEq<AccountType> for AccountTypeWrapper {
 }
 
 async fn print(conf: ConfigFile) -> Result<()> {
-    let mut store = crate::store::SqliteStore::new(&conf.data_path()).await?;
     let plaid = default_plaid_client(&conf);
+    let store = crate::store::SqliteStore::new(&conf.data_path()).await?;
 
-    let links = store.links().list().await?;
-    let link_controller = crate::plaid::LinkController::new(plaid, links).await?;
+    let link_controller = crate::plaid::LinkController::new(plaid, store).await?;
 
     let table = link_controller.display_accounts_table()?;
 

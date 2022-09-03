@@ -1,5 +1,6 @@
 use rplaid::model::{self, AccountType};
 
+#[derive(Debug)]
 pub struct Account {
     pub id: String,
     pub name: String,

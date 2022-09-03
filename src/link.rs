@@ -6,7 +6,6 @@ use crossbeam_channel::{bounded, Receiver};
 use plaid_link::{LinkMode, State};
 use tokio::signal;
 use tokio::time::{sleep_until, Duration, Instant};
-use tracing::{info, warn};
 
 use crate::model::ConfigFile;
 use crate::plaid::{default_plaid_client, Link, LinkController, LinkStatus};
@@ -163,29 +162,10 @@ async fn remove(conf: ConfigFile, item_id: &str) -> Result<()> {
 }
 
 async fn status(conf: ConfigFile) -> Result<()> {
-    let mut store = store::SqliteStore::new(&conf.data_path()).await?;
+    let store = store::SqliteStore::new(&conf.data_path()).await?;
     let plaid = default_plaid_client(&conf);
 
-    let mut links: Vec<Link> = store.links().list().await?;
-
-    for link in &mut links {
-        let item = plaid.item(&link.access_token).await?;
-
-        if let Some(e) = item.error {
-            if let Some("ITEM_LOGIN_REQUIRED") = &e.error_code.as_deref() {
-                info!("Link: {} failed with status {:?}", link.item_id, e);
-
-                link.state = LinkStatus::Degraded(e.error_message.unwrap());
-
-                store.links().update(link).await?;
-
-                continue;
-            }
-
-            warn!("Unexpected link error. id={}", link.item_id);
-        }
-    }
-    let link_controller = LinkController::new(default_plaid_client(&conf), links).await?;
+    let link_controller = LinkController::new(plaid, store).await?;
 
     println!("{}", link_controller.display_connections_table()?);
 

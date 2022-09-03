@@ -10,8 +10,6 @@ use crate::upstream::TransactionEntry;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("conflicting data already exists")]
-    AlreadyExists,
     #[error(transparent)]
     Parse(#[from] serde_json::Error),
     #[error(transparent)]

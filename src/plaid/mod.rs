@@ -2,8 +2,8 @@ use std::io::Write;
 
 use anyhow::{anyhow, Result};
 use rplaid::client::{Builder, Credentials, Plaid};
-use serde::{Deserialize, Serialize};
 use tabwriter::TabWriter;
+use tracing::{info, warn};
 
 use crate::model::ConfigFile;
 use crate::COUNTRY_CODES;
@@ -13,21 +13,30 @@ pub struct LinkController {
 }
 
 impl LinkController {
-    pub async fn new(client: Plaid, links: Vec<Link>) -> Result<LinkController> {
+    pub async fn new(
+        client: Plaid,
+        mut store: crate::store::SqliteStore,
+    ) -> Result<LinkController> {
         let mut connections = vec![];
+        let links = store.links().list().await?;
 
-        for link in links {
+        for mut link in links {
             let canonical = client.item(&link.access_token).await?;
-            let state = match &canonical.error {
-                Some(err) => {
-                    let message = match &err.error_message {
-                        Some(m) => m.into(),
-                        None => "unexpected error with item".to_string(),
-                    };
-                    LinkStatus::Degraded(message)
+
+            if let Some(e) = &canonical.error {
+                if let Some("ITEM_LOGIN_REQUIRED") = &e.error_code.as_deref() {
+                    info!("Link: {} failed with status {:?}", link.item_id, e);
+
+                    link.state =
+                        LinkStatus::Degraded(e.error_message.as_ref().unwrap().to_string());
+
+                    store.links().update(&link).await?;
+
+                    continue;
                 }
-                None => LinkStatus::Active,
-            };
+
+                warn!("Unexpected link error. id={}", link.item_id);
+            }
 
             let ins: Result<rplaid::model::Institution> = match &canonical.institution_id {
                 Some(id) => Ok(client
@@ -44,17 +53,16 @@ impl LinkController {
             };
 
             let accounts = match link.state {
-                LinkStatus::Active => client.accounts(&link.access_token).await?,
+                LinkStatus::Active => store.accounts().by_item(&link.item_id).await?,
                 _ => vec![],
             };
 
             connections.push(Connection {
                 canonical,
                 accounts,
-                state,
+                state: link.state.clone(),
                 institution: ins?,
                 alias: link.alias,
-                access_token: link.access_token,
                 item_id: link.item_id,
             });
         }
@@ -88,8 +96,8 @@ impl LinkController {
                     "{}\t{}\t{}\t{:?}\t{:?}",
                     conn.institution.name,
                     account.name,
-                    account.account_id,
-                    account.r#type,
+                    account.id,
+                    account.ty,
                     conn.canonical.consent_expiration_time
                 )?;
             }
@@ -109,7 +117,7 @@ pub(crate) fn default_plaid_client(conf: &ConfigFile) -> rplaid::client::Plaid {
         .build()
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone)]
 pub struct Link {
     pub alias: String,
     pub access_token: String,
@@ -118,21 +126,19 @@ pub struct Link {
     pub sync_cursor: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[derive(Debug, Clone)]
 pub enum LinkStatus {
     Active,
     Degraded(String),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 struct Connection {
     alias: String,
-    access_token: String,
     item_id: String,
     state: LinkStatus,
 
     canonical: rplaid::model::Item,
     institution: rplaid::model::Institution,
-    accounts: Vec<rplaid::model::Account>,
+    accounts: Vec<crate::core::Account>,
 }

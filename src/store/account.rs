@@ -40,6 +40,27 @@ impl<'a> Store<'a> {
             }))
     }
 
+    pub async fn by_item(&mut self, id: &str) -> Result<Vec<Account>> {
+        let (query, values) = Query::select()
+            .from(Accounts::Table)
+            .columns([Accounts::Id, Accounts::Name, Accounts::Type])
+            .and_where(Expr::col(Accounts::ItemId).eq(id))
+            .build(SqliteQueryBuilder);
+
+        let rows = bind_query(sqlx::query(&query), &values)
+            .fetch_all(&mut self.0.conn.acquire().await?)
+            .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| Account {
+                id: row.try_get("id").unwrap(),
+                name: row.try_get("name").unwrap(),
+                ty: row.try_get("type").unwrap(),
+            })
+            .collect())
+    }
+
     pub async fn save(&mut self, item_id: &str, account: &Account) -> Result<()> {
         let (query, values) = Query::insert()
             .into_table(Accounts::Table)
