@@ -61,7 +61,7 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode, name: &str) -> Res
     let mut listener = server.on_exchange();
     let mut store = store::SqliteStore::new(&conf.data_path()).await?;
     let link = match &mode {
-        plaid_link::LinkMode::Update(s) => Some(store.link(s).await?),
+        plaid_link::LinkMode::Update(s) => Some(store.links().link(s).await?),
         plaid_link::LinkMode::Create => None,
     };
 
@@ -77,26 +77,26 @@ async fn server(conf: ConfigFile, mode: plaid_link::LinkMode, name: &str) -> Res
         match m.as_ref() {
             plaid_link::LinkMode::Update(_) => {
                 store
-                    .update_link(&Link {
+                    .links()
+                    .update(&Link {
                         alias: name,
                         access_token: token.access_token,
                         item_id: token.item_id,
                         state: LinkStatus::Active,
                         sync_cursor: None,
-                        env: conf.config().plaid.env.clone(),
                     })
                     .await
                     .unwrap();
             }
             _ => {
                 store
-                    .save_link(&Link {
+                    .links()
+                    .save(&Link {
                         alias: name,
                         access_token: token.access_token,
                         item_id: token.item_id,
                         state: LinkStatus::Active,
                         sync_cursor: None,
-                        env: conf.config().plaid.env.clone(),
                     })
                     .await
                     .unwrap();
@@ -146,9 +146,9 @@ async fn remove(conf: ConfigFile, item_id: &str) -> Result<()> {
     let mut store = store::SqliteStore::new(&conf.data_path()).await?;
     let plaid = default_plaid_client(&conf);
 
-    let link = store.link(item_id).await?;
+    let link = store.links().link(item_id).await?;
     plaid.item_del(&link.access_token).await?;
-    store.delete_link(item_id).await?;
+    store.links().delete(item_id).await?;
 
     Ok(())
 }
@@ -157,7 +157,7 @@ async fn status(conf: ConfigFile) -> Result<()> {
     let mut store = store::SqliteStore::new(&conf.data_path()).await?;
     let plaid = default_plaid_client(&conf);
 
-    let mut links: Vec<Link> = store.links().await?;
+    let mut links: Vec<Link> = store.links().list().await?;
 
     for link in &mut links {
         let item = plaid.item(&link.access_token).await?;
@@ -168,7 +168,7 @@ async fn status(conf: ConfigFile) -> Result<()> {
 
                 link.state = LinkStatus::Degraded(e.error_message.unwrap());
 
-                store.update_link(link).await?;
+                store.links().update(link).await?;
 
                 continue;
             }

@@ -271,6 +271,7 @@ dependencies = [
  "regex",
  "rplaid",
  "rusty-money",
+ "sea-query",
  "serde",
  "serde_json",
  "sqlx",
@@ -692,6 +693,15 @@ dependencies = [
  "flate2",
  "nom",
  "num-traits",
+]
+
+[[package]]
+name = "heck"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d621efb26863f0e9924c6ac577e8275e5e6b77455db64ffa6c65c904e9e132c"
+dependencies = [
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -1401,6 +1411,40 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
+name = "sea-query"
+version = "0.26.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6a1de9d0334895f7eb51bd1603c3c9f6737413f905a134001f1e198f43bfd70"
+dependencies = [
+ "sea-query-derive",
+ "sea-query-driver",
+]
+
+[[package]]
+name = "sea-query-derive"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34cdc022b4f606353fe5dc85b09713a04e433323b70163e81513b141c6ae6eb5"
+dependencies = [
+ "heck 0.3.3",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "thiserror",
+]
+
+[[package]]
+name = "sea-query-driver"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbda46eb3484cae1efb7bc68bca50f553a5b42c076cf4cbfae05b27f707549d4"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "security-framework"
 version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1602,7 +1646,7 @@ checksum = "4adfd2df3557bddd3b91377fc7893e8fa899e9b4061737cbade4e1bb85f1b45c"
 dependencies = [
  "dotenvy",
  "either",
- "heck",
+ "heck 0.4.0",
  "once_cell",
  "proc-macro2",
  "quote",

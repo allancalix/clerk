@@ -11,7 +11,7 @@ use crate::upstream::{plaid::Source, TransactionSource};
 async fn pull(conf: ConfigFile) -> Result<()> {
     let mut store = SqliteStore::new(&conf.data_path()).await?;
     let plaid = default_plaid_client(&conf);
-    let links: Vec<Link> = store.links().await?;
+    let links: Vec<Link> = store.links().list().await?;
 
     for link in links {
         let mut upstream = Source::new(&plaid, link.access_token.clone(), link.sync_cursor.clone());
@@ -61,7 +61,7 @@ async fn pull(conf: ConfigFile) -> Result<()> {
                 "Updating link with latest cursor. cursor={:?}",
                 &updated_link.sync_cursor
             );
-            store.update_link(&updated_link).await?;
+            store.links().update(&updated_link).await?;
         }
 
         info!(

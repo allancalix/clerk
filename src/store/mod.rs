@@ -1,12 +1,12 @@
+mod link;
+
 use std::sync::Arc;
 
-use rplaid::client::Environment;
 use serde::Serialize;
-use sqlx::{pool::PoolConnection, Connection, Error as SqlxError, FromRow, Row};
+use sqlx::{pool::PoolConnection, Connection, Error as SqlxError, Row};
 use thiserror::Error;
 
 use crate::core::{Posting, Transaction};
-use crate::plaid::{Link, LinkStatus};
 use crate::upstream::TransactionEntry;
 
 #[derive(Debug, Error)]
@@ -33,24 +33,6 @@ impl PartialEq for Error {
     }
 }
 
-impl<'r, R: sqlx::Row> sqlx::FromRow<'r, R> for Link
-where
-    std::string::String: sqlx::Decode<'r, <R as Row>::Database> + sqlx::Type<<R as Row>::Database>,
-    &'r str: sqlx::Decode<'r, <R as Row>::Database> + sqlx::Type<<R as Row>::Database>,
-    &'static str: sqlx::ColumnIndex<R>,
-{
-    fn from_row(row: &'r R) -> ::std::result::Result<Self, SqlxError> {
-        Ok(Link {
-            item_id: row.try_get("item_id")?,
-            alias: row.try_get("alias")?,
-            access_token: row.try_get("access_token")?,
-            env: from_enum(row.try_get("environment")?).unwrap(),
-            state: from_status_enum(row.try_get("link_state")?).unwrap(),
-            sync_cursor: row.try_get("sync_cursor")?,
-        })
-    }
-}
-
 type Result<T> = ::std::result::Result<T, Error>;
 
 pub struct SqliteStore {
@@ -69,61 +51,8 @@ impl SqliteStore {
         })
     }
 
-    pub async fn update_link(&mut self, link: &Link) -> Result<()> {
-        sqlx::query("UPDATE plaid_links SET access_token = $1, link_state = $2, alias = $3, sync_cursor = $4 WHERE item_id = $5")
-            .bind(&link.access_token)
-            .bind(to_status_enum(&link.state))
-            .bind(&link.alias)
-            .bind(&link.sync_cursor)
-            .bind(&link.item_id)
-            .execute(&mut self.conn.acquire().await?).await?;
-
-        Ok(())
-    }
-
-    pub async fn link(&mut self, id: &str) -> Result<Link> {
-        let row = sqlx::query(
-            "SELECT item_id, alias, access_token, link_state, environment, link_state, sync_cursor FROM plaid_links WHERE item_id = $1")
-        .bind(id)
-        .fetch_one(&mut self.conn.acquire().await?)
-        .await?;
-
-        Ok(Link::from_row(&row)?)
-    }
-
-    pub async fn links(&mut self) -> Result<Vec<Link>> {
-        let rows = sqlx::query(
-            "SELECT item_id, alias, access_token, link_state, environment, sync_cursor FROM plaid_links",
-        )
-        .fetch_all(&mut self.conn.acquire().await?)
-        .await?;
-
-        let mut links = vec![];
-        for row in rows {
-            links.push(Link::from_row(&row)?);
-        }
-
-        Ok(links)
-    }
-
-    pub async fn save_link(&mut self, link: &Link) -> Result<()> {
-        sqlx::query("INSERT INTO plaid_links (item_id, alias, access_token, link_state, environment) VALUES ($1, $2, $3, $4, $5)")
-            .bind(&link.item_id)
-            .bind(&link.alias)
-            .bind(&link.access_token)
-            .bind(to_status_enum(&link.state))
-            .bind(to_enum(&link.env))
-            .execute(&mut self.conn.acquire().await?).await?;
-
-        Ok(())
-    }
-
-    pub async fn delete_link(&mut self, id: &str) -> Result<Link> {
-        let row = sqlx::query("DELETE FROM plaid_links WHERE item_id = $1 RETURNING item_id, alias, access_token, link_state, environment, sync_cursor")
-            .bind(id)
-            .fetch_one(&mut self.conn.acquire().await?).await?;
-
-        Ok(Link::from_row(&row)?)
+    pub fn links(&mut self) -> link::LinkStore {
+        link::LinkStore::new(self)
     }
 
     pub async fn tx_by_plaid_id(
@@ -302,47 +231,16 @@ async fn insert_posting<'a>(
     Ok(())
 }
 
-fn to_status_enum(status: &LinkStatus) -> String {
-    match *status {
-        LinkStatus::Degraded(_) => "REQUIRES_VERIFICATION".into(),
-        LinkStatus::Active => "ACTIVE".into(),
-    }
-}
-
-fn from_status_enum(status: &str) -> anyhow::Result<LinkStatus> {
-    match status {
-        "ACTIVE" => Ok(LinkStatus::Active),
-        "REQUIRES_VERIFICATION" => Ok(LinkStatus::Degraded("requires verification".to_string())),
-        s => Err(anyhow::anyhow!("unknown status {}", s)),
-    }
-}
-
-fn to_enum(env: &Environment) -> String {
-    match *env {
-        Environment::Sandbox => "SANDBOX".into(),
-        Environment::Development => "DEVELOPMENT".into(),
-        Environment::Production => "PRODUCTION".into(),
-        Environment::Custom(_) => "CUSTOM".into(),
-    }
-}
-
-fn from_enum(env: &str) -> anyhow::Result<Environment> {
-    match env {
-        "SANDBOX" => Ok(Environment::Sandbox),
-        "DEVELOPMENT" => Ok(Environment::Development),
-        "PRODUCTION" => Ok(Environment::Production),
-        s => Err(anyhow::anyhow!("unknown environment {}", s)),
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use crate::core::Status;
     use chrono::NaiveDate;
     use rplaid::model::Transaction as PlaidTransaction;
     use ulid::Ulid;
+
+    use crate::core::Status;
+    use crate::plaid::Link;
+
+    use super::*;
 
     const UPSTREAM_TXN_ID: &str = "test-upstream-id";
 
@@ -379,67 +277,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn save_plaid_link_to_table() {
-        let mut store = test_store().await;
-
-        let link = Link {
-            alias: "test_link".to_string(),
-            access_token: "1234".to_string(),
-            item_id: "plaid-id-123".to_string(),
-            state: crate::plaid::LinkStatus::Active,
-            sync_cursor: None,
-            env: Environment::Development,
-        };
-        let result = store.save_link(&link).await;
-
-        assert!(result.is_ok())
-    }
-
-    #[tokio::test]
-    async fn list_plaid_links_to_table() {
-        let mut store = test_store().await;
-        let link = Link {
-            alias: "test_link".to_string(),
-            access_token: "1234".to_string(),
-            item_id: "plaid-id-123".to_string(),
-            state: crate::plaid::LinkStatus::Active,
-            sync_cursor: None,
-            env: Environment::Development,
-        };
-        store.save_link(&link).await.unwrap();
-
-        let second_link = Link {
-            item_id: "plaid-id-456".to_string(),
-            ..link
-        };
-        store.save_link(&second_link).await.unwrap();
-
-        let links = store.links().await.unwrap();
-
-        assert_eq!(links.len(), 2);
-    }
-
-    #[tokio::test]
-    async fn update_plaid_link() {
-        let mut store = test_store().await;
-        let link = Link {
-            alias: "test_link".to_string(),
-            access_token: "1234".to_string(),
-            item_id: "plaid-id-123".to_string(),
-            state: crate::plaid::LinkStatus::Active,
-            sync_cursor: None,
-            env: Environment::Development,
-        };
-        store.save_link(&link).await.unwrap();
-
-        let mut updated_link = link.clone();
-        updated_link.alias = "updated name".to_string();
-        let result = store.update_link(&updated_link).await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
     async fn can_save_transaction() {
         let mut store = test_store().await;
         let link = Link {
@@ -448,9 +285,8 @@ mod tests {
             item_id: "plaid-id-123".to_string(),
             state: crate::plaid::LinkStatus::Active,
             sync_cursor: None,
-            env: Environment::Development,
         };
-        store.save_link(&link).await.unwrap();
+        store.links().save(&link).await.unwrap();
 
         let entry = TransactionEntry {
             canonical: Transaction {
@@ -471,27 +307,5 @@ mod tests {
             .save_tx(&link.item_id, UPSTREAM_TXN_ID, &entry)
             .await
             .unwrap();
-    }
-
-    #[tokio::test]
-    async fn get_link_by_id() {
-        let mut store = test_store().await;
-        let link = Link {
-            alias: "test_link".to_string(),
-            access_token: "1234".to_string(),
-            item_id: "plaid-id-123".to_string(),
-            state: crate::plaid::LinkStatus::Active,
-            sync_cursor: None,
-            env: Environment::Development,
-        };
-        store.save_link(&link).await.unwrap();
-
-        let fetch_link = store.link(&link.item_id).await.unwrap();
-
-        assert_eq!(&link.alias, &fetch_link.alias);
-        assert_eq!(&link.access_token, &fetch_link.access_token);
-        assert_eq!(&link.item_id, &fetch_link.item_id);
-        assert!(matches!(link.state, crate::plaid::LinkStatus::Active));
-        assert!(matches!(link.env, Environment::Development));
     }
 }

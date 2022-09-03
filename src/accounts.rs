@@ -39,7 +39,7 @@ async fn print(conf: ConfigFile) -> Result<()> {
     let mut store = crate::store::SqliteStore::new(&conf.data_path()).await?;
     let plaid = default_plaid_client(&conf);
 
-    let links = store.links().await?;
+    let links = store.links().list().await?;
     let link_controller = crate::plaid::LinkController::new(plaid, links).await?;
 
     let table = link_controller.display_accounts_table()?;
@@ -53,7 +53,7 @@ async fn balances(conf: ConfigFile) -> Result<()> {
     let mut store = crate::store::SqliteStore::new(&conf.data_path()).await?;
     let plaid = default_plaid_client(&conf);
 
-    let links: Vec<Link> = store.links().await?;
+    let links: Vec<Link> = store.links().list().await?;
 
     let mut balances_by_type = HashMap::new();
     let mut futures = vec![];

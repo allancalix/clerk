@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use anyhow::{anyhow, Result};
-use rplaid::client::{Builder, Credentials, Environment, Plaid};
+use rplaid::client::{Builder, Credentials, Plaid};
 use serde::{Deserialize, Serialize};
 use tabwriter::TabWriter;
 
@@ -56,7 +56,6 @@ impl LinkController {
                 alias: link.alias,
                 access_token: link.access_token,
                 item_id: link.item_id,
-                env: link.env,
             });
         }
 
@@ -117,7 +116,6 @@ pub struct Link {
     pub item_id: String,
     pub state: LinkStatus,
     pub sync_cursor: Option<String>,
-    pub env: Environment,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -133,7 +131,6 @@ struct Connection {
     access_token: String,
     item_id: String,
     state: LinkStatus,
-    env: Environment,
 
     canonical: rplaid::model::Item,
     institution: rplaid::model::Institution,
