@@ -4,7 +4,7 @@ use std::io::prelude::*;
 
 use anyhow::Result;
 use clap::ArgMatches;
-use futures::future::join_all;
+use futures_lite::stream::StreamExt;
 use lazy_static::lazy_static;
 use rplaid::model::*;
 use rusty_money::{
@@ -60,15 +60,18 @@ async fn balances(settings: Settings) -> Result<()> {
     for link in links {
         futures.push(plaid.balances(link.access_token));
     }
-    let results = join_all(futures).await;
 
-    for balance in results {
-        let balance = balance?;
-        for b in balance {
+    let results = futures_lite::stream::iter(futures)
+        .then(|f| f)
+        .collect::<Vec<_>>()
+        .await;
+
+    for result in results {
+        for account in result? {
             balances_by_type
-                .entry(AccountTypeWrapper(b.r#type))
+                .entry(AccountTypeWrapper(account.r#type))
                 .or_insert(Vec::new())
-                .push(b);
+                .push(account);
         }
     }
 

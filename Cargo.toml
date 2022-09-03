@@ -17,8 +17,7 @@ config = "0.13"
 console-subscriber = "0.1"
 crossbeam-channel = "0.5"
 dirs = "4.0"
-futures = "0.3"
-futures-util = "0.3"
+futures-lite = "1.12"
 lazy_static = "1.4.0"
 plaid-link = { path = "crates/plaid_link", version = "0.1.0" }
 rplaid = { git = "https://github.com/allancalix/rplaid.git", branch = "main", features = ["decimal"] }

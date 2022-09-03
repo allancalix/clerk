@@ -3,8 +3,7 @@ use std::collections::HashSet;
 use anyhow::Result;
 use axum::async_trait;
 use chrono::NaiveDate;
-use futures_util::pin_mut;
-use futures_util::StreamExt;
+use futures_lite::{pin, stream::StreamExt};
 use rplaid::client::Plaid;
 use rplaid::model::{
     self, Account, SyncTransactionsRequest, SyncTransactionsRequestOptions, TransactionStream,
@@ -92,14 +91,12 @@ impl<'a> TransactionSource<model::Transaction> for Source<'a> {
                 include_original_description: Some(false),
             }),
         });
-        pin_mut!(tx_pages);
+        pin!(tx_pages);
 
-        let tx_list = tx_pages
-            .fold(vec![], |mut acc, x| async move {
-                acc.append(&mut x.unwrap());
-                acc
-            })
-            .await;
+        let mut tx_list = vec![];
+        while let Some(txn_page) = tx_pages.next().await {
+            tx_list.extend(txn_page?);
+        }
 
         if let Some(next_cursor) = tx_list.last() {
             assert!(matches!(next_cursor, TransactionStream::Done(_)));
