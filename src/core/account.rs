@@ -1,6 +1,6 @@
 use rplaid::model::{self, AccountType};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Account {
     pub id: String,
     pub name: String,
@@ -11,7 +11,7 @@ impl From<model::Account> for Account {
     fn from(model: model::Account) -> Self {
         let ty = match model.r#type {
             AccountType::Credit | AccountType::Loan => "CREDIT_NORMAL",
-            AccountType::Depository => "DEBIT_NORMAL",
+            AccountType::Depository | AccountType::Investment | AccountType::Brokerage => "DEBIT_NORMAL",
             _ => unimplemented!(),
         };
 

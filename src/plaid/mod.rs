@@ -53,7 +53,26 @@ impl LinkController {
             };
 
             let accounts = match link.state {
-                LinkStatus::Active => store.accounts().by_item(&link.item_id).await?,
+                LinkStatus::Active => {
+                    let upstream_clients = client.accounts(&link.access_token).await?;
+                    let local_clients = store.accounts().by_item(&link.item_id).await?;
+
+                    let mut accounts = vec![];
+                    for upstream in upstream_clients {
+                        if let Some(account) = local_clients.iter().find(|acc| acc.id == upstream.account_id) {
+                            accounts.push(account.clone());
+
+                            continue;
+                        }
+
+                        let account = upstream.into();
+                        store.accounts().save(&link.item_id, &account).await?;
+
+                        accounts.push(account);
+                    }
+
+                    accounts
+                },
                 _ => vec![],
             };
 
