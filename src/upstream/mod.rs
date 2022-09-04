@@ -12,6 +12,12 @@ pub trait AccountSource {
     async fn accounts(&self) -> Result<Vec<Account>>;
 }
 
+pub enum TransactionEvent<T> {
+    Added(TransactionEntry<T>),
+    Modified(TransactionEntry<T>),
+    Removed(String),
+}
+
 pub struct TransactionEntry<T> {
     pub canonical: Transaction,
     pub source: T,
@@ -28,5 +34,5 @@ where
 
 #[async_trait]
 pub trait TransactionSource<T: Serialize> {
-    async fn transactions(&mut self) -> Result<Vec<TransactionEntry<T>>>;
+    async fn transactions(&mut self) -> Result<Vec<TransactionEvent<T>>>;
 }

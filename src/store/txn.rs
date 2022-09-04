@@ -54,6 +54,36 @@ impl<'a> Store<'a> {
             .map(|row| row.try_get("id").unwrap()))
     }
 
+    pub async fn update_source<S: Serialize>(&mut self, id: &str, source: S) -> Result<()> {
+        let (query, values) = Query::update()
+            .table(Transactions::Table)
+            .values(vec![(
+                Transactions::Source,
+                serde_json::to_string(&source)?.into(),
+            )])
+            .and_where(Expr::col(Transactions::Id).eq(id))
+            .build(SqliteQueryBuilder);
+
+        bind_query(sqlx::query(&query), &values)
+            .execute(&mut self.0.conn.acquire().await?)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn delete(&mut self, id: &str) -> Result<()> {
+        let (query, values) = Query::delete()
+            .from_table(Transactions::Table)
+            .and_where(Expr::col(Transactions::Id).eq(id))
+            .build(SqliteQueryBuilder);
+
+        bind_query(sqlx::query(&query), &values)
+            .execute(&mut self.0.conn.acquire().await?)
+            .await?;
+
+        Ok(())
+    }
+
     pub async fn save<S: Serialize>(
         &mut self,
         account_id: &str,
@@ -167,14 +197,56 @@ mod tests {
                 date: NaiveDate::parse_from_str("2022-05-01", "%Y-%m-%d").unwrap(),
                 narration: "Test Transaction".to_string(),
                 payee: None,
-                links: Default::default(),
-                tags: Default::default(),
-                meta: Default::default(),
                 status: Status::Resolved,
             },
             source: plaid_transaction(),
         };
 
         store.txns().save("test-account-id", &entry).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn delete() {
+        let mut store = test_store().await;
+        let link = Link {
+            alias: "test_link".to_string(),
+            access_token: "1234".to_string(),
+            item_id: "plaid-id-123".to_string(),
+            state: crate::plaid::LinkStatus::Active,
+            sync_cursor: None,
+        };
+        store.links().save(&link).await.unwrap();
+        store
+            .accounts()
+            .save(
+                &link.item_id,
+                &Account {
+                    id: "test-account-id".into(),
+                    ty: "CREDIT_NORMAL".into(),
+                    name: "Test Account".into(),
+                },
+            )
+            .await
+            .unwrap();
+
+        let txn_id = Ulid::new();
+        let entry = TransactionEntry {
+            canonical: Transaction {
+                id: txn_id.clone(),
+                date: NaiveDate::parse_from_str("2022-05-01", "%Y-%m-%d").unwrap(),
+                narration: "Test Transaction".to_string(),
+                payee: None,
+                status: Status::Resolved,
+            },
+            source: plaid_transaction(),
+        };
+
+        store.txns().save("test-account-id", &entry).await.unwrap();
+
+        store
+            .txns()
+            .delete(txn_id.to_string().as_str())
+            .await
+            .unwrap();
     }
 }

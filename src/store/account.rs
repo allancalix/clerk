@@ -23,6 +23,7 @@ impl<'a> Store<'a> {
         Self(store)
     }
 
+    #[allow(dead_code)]
     pub async fn by_id(&mut self, id: &str) -> Result<Option<Account>> {
         let (query, values) = Query::select()
             .from(Accounts::Table)

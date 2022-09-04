@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use anyhow::Result;
 use axum::async_trait;
 use chrono::NaiveDate;
@@ -10,14 +8,12 @@ use rplaid::model::{
 };
 
 use crate::core::{Status, Transaction};
-use crate::upstream::{AccountSource, TransactionEntry, TransactionSource};
+use crate::upstream::{AccountSource, TransactionEntry, TransactionEvent, TransactionSource};
 
 pub struct Source<'a> {
     pub(crate) client: &'a Plaid,
     pub(crate) token: String,
     cursor: Option<String>,
-    removed: HashSet<String>,
-    modified: HashSet<String>,
 }
 
 impl<'a> Source<'a> {
@@ -26,8 +22,6 @@ impl<'a> Source<'a> {
             client,
             token,
             cursor,
-            removed: Default::default(),
-            modified: Default::default(),
         }
     }
 }
@@ -50,9 +44,6 @@ fn to_canonical_txn(tx: &model::Transaction) -> Result<Transaction> {
             Status::Resolved
         },
         payee: tx.merchant_name.clone(),
-        tags: Default::default(),
-        links: Default::default(),
-        meta: Default::default(),
     })
 }
 
@@ -61,27 +52,13 @@ impl<'a> Source<'a> {
         self.cursor
             .expect("must call transactions on source before checking cursor")
     }
-
-    pub fn removed(&self) -> &HashSet<String> {
-        &self.removed
-    }
-
-    pub fn modified(&self) -> &HashSet<String> {
-        &self.modified
-    }
-
-    fn remove(&mut self, id: &str) {
-        self.removed.insert(id.to_string());
-    }
-
-    fn modify(&mut self, id: &str) {
-        self.modified.insert(id.to_string());
-    }
 }
+
+type PlaidTransactionEvent = TransactionEvent<model::Transaction>;
 
 #[async_trait]
 impl<'a> TransactionSource<model::Transaction> for Source<'a> {
-    async fn transactions(&mut self) -> Result<Vec<TransactionEntry<model::Transaction>>> {
+    async fn transactions(&mut self) -> Result<Vec<PlaidTransactionEvent>> {
         let tx_pages = self.client.transactions_sync_iter(SyncTransactionsRequest {
             access_token: self.token.clone(),
             cursor: self.cursor.clone(),
@@ -111,34 +88,28 @@ impl<'a> TransactionSource<model::Transaction> for Source<'a> {
             .into_iter()
             .filter_map(|e| match e {
                 TransactionStream::Added(txn) => {
-                    let entry = TransactionEntry {
+                    let entry = PlaidTransactionEvent::Added(TransactionEntry {
                         canonical: to_canonical_txn(&txn).unwrap(),
                         source: txn,
-                    };
+                    });
 
                     Some(entry)
                 }
                 TransactionStream::Modified(txn) => {
-                    self.modify(&txn.transaction_id);
-
-                    let entry = TransactionEntry {
+                    let entry = PlaidTransactionEvent::Modified(TransactionEntry {
                         canonical: to_canonical_txn(&txn).unwrap(),
                         source: txn,
-                    };
+                    });
 
                     Some(entry)
                 }
-                TransactionStream::Removed(id) => {
-                    self.remove(&id);
-
-                    None
-                }
+                TransactionStream::Removed(id) => Some(PlaidTransactionEvent::Removed(id)),
                 TransactionStream::Done(cursor) => {
                     self.cursor = Some(cursor);
 
                     None
                 }
             })
-            .collect::<Vec<TransactionEntry<model::Transaction>>>())
+            .collect::<Vec<PlaidTransactionEvent>>())
     }
 }

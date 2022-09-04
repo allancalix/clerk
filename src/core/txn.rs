@@ -1,9 +1,5 @@
-use std::collections::{HashMap, HashSet};
-
 use chrono::naive::NaiveDate;
 use ulid::Ulid;
-
-type Bytes = Vec<u8>;
 
 #[derive(Debug, Clone)]
 pub enum Status {
@@ -39,7 +35,4 @@ pub struct Transaction {
     pub date: NaiveDate,
     pub payee: Option<String>,
     pub narration: String,
-    pub tags: HashSet<String>,
-    pub links: HashSet<String>,
-    pub meta: HashMap<String, Bytes>,
 }
