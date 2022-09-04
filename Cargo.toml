@@ -14,7 +14,6 @@ axum = "0.5"
 chrono = { version = "0.4", features = ["serde"] }
 clap = "3.2"
 config = "0.13"
-console-subscriber = "0.1"
 crossbeam-channel = "0.5"
 dirs = "4.0"
 futures-lite = "1.12"
@@ -22,15 +21,15 @@ lazy_static = "1.4.0"
 plaid-link = { path = "crates/plaid_link", version = "0.1.0" }
 rplaid = { git = "https://github.com/allancalix/rplaid.git", branch = "main", features = ["decimal"] }
 rusty-money = { version = "0.4", features = ["iso"] }
-sea-query = { version = "0.26", features = ["backend-sqlite", "derive", "sqlx-sqlite", "thread-safe"] }
+sea-query = { version = "0.26", default-features = false, features = ["backend-sqlite", "derive", "sqlx-sqlite", "thread-safe"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-sqlx = { version = "0.6", features = ["sqlite", "runtime-tokio-native-tls", "migrate", "chrono"] }
+sqlx = { version = "0.6", default-features = false, features = ["sqlite", "runtime-tokio-native-tls", "macros", "migrate", "chrono"] }
 tabwriter = "1.2"
 thiserror = "1.0"
-tokio = { version = "1.20", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.21", default-features = false, features = ["rt-multi-thread", "macros", "signal"] }
 tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt"] }
 tracing-tree = "0.2"
 ulid = { version = "1.0", features = ["std"] }
 
@@ -38,5 +37,5 @@ ulid = { version = "1.0", features = ["std"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "test-util"] }
 
 [profile.release]
-codegen-units = 1
 lto = true
+incremental = true

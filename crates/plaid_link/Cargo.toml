@@ -7,13 +7,13 @@ edition = "2021"
 anyhow = "1.0"
 axum = "0.5"
 base64 = "0.13"
-hyper = { version = "0.14", features = ["client"] }
+hyper = { version = "0.14", default-features = false, features = ["client"] }
 lazy_static = "1.4"
 rplaid = { git = "https://github.com/allancalix/rplaid.git", branch = "main" }
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
-tokio = { version = "1.20", features = ["rt-multi-thread", "signal"] }
+tokio = { version = "1.21", default-features = false }
 url = "2.2"
 
 [dev-dependencies]
