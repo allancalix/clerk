@@ -4,6 +4,19 @@ A utility for automatically syncing transactions from [Plaid API][Plaid].
 **Features:**
 * Sync transaction data from Plaid to your local machine
 * Integration with [Plaid Link][Plaid Link]
+* Keeps local data consistent with Plaid data as transactions are modified
+
+## Motivation
+Having a consistent and accurate source of transaction data makes tasks like
+budgeting, accounting, and taxes easier. I use this transaction stream to
+automatically generate [beancount](https://beancount.github.io/) entries for Plain
+text accounting.
+
+At the end of the day the data is yours and you can query the database using sqlite
+directly for building UIs, account monitoring, or all sorts of purposes. For some
+examples check out:
+* [clerk beancount importer](https://github.com/allancalix/clerk-importer)
+* [clerk account alerting example](https://github.com/allancalix/clerk-importer)
 
 ## Installation
 
