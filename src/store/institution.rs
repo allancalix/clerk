@@ -59,6 +59,11 @@ impl<'a> Store<'a> {
             .into_table(Institutions::Table)
             .columns([Institutions::Id, Institutions::Name])
             .values_panic(vec![ins.id.as_str().into(), ins.name.as_str().into()])
+            .on_conflict(
+                sea_query::OnConflict::column(Institutions::Id)
+                    .update_column(Institutions::Name)
+                    .to_owned(),
+            )
             .build(SqliteQueryBuilder);
 
         bind_query(sqlx::query(&query), &values)
