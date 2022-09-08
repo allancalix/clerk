@@ -73,8 +73,10 @@ async fn server(settings: Settings, mode: plaid_link::LinkMode, name: &str) -> R
             None => "".to_string(),
         };
 
+        let plaid = default_plaid_client(&settings);
         match m.as_ref() {
             plaid_link::LinkMode::Update(_) => {
+                let link = plaid.item(&token.access_token).await.unwrap();
                 store
                     .links()
                     .update(&Link {
@@ -83,11 +85,13 @@ async fn server(settings: Settings, mode: plaid_link::LinkMode, name: &str) -> R
                         item_id: token.item_id,
                         state: LinkStatus::Active,
                         sync_cursor: None,
+                        institution_id: link.institution_id,
                     })
                     .await
                     .unwrap();
             }
             _ => {
+                let link = plaid.item(&token.access_token).await.unwrap();
                 store
                     .links()
                     .save(&Link {
@@ -96,11 +100,11 @@ async fn server(settings: Settings, mode: plaid_link::LinkMode, name: &str) -> R
                         item_id: token.item_id.clone(),
                         state: LinkStatus::Active,
                         sync_cursor: None,
+                        institution_id: link.institution_id,
                     })
                     .await
                     .unwrap();
 
-                let plaid = default_plaid_client(&settings);
                 for acc in plaid.accounts(token.access_token).await.unwrap() {
                     store
                         .accounts()
@@ -167,9 +171,9 @@ async fn status(settings: Settings) -> Result<()> {
 
     let link_controller = LinkController::new(plaid, store).await?;
 
-    println!("{}", link_controller.display_connections_table()?);
+    let stdout = std::io::stdout().lock();
 
-    Ok(())
+    link_controller.display_connections_table(stdout)
 }
 
 pub(crate) async fn run(matches: &ArgMatches, settings: Settings) -> Result<()> {

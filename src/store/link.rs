@@ -15,6 +15,7 @@ enum PlaidLinks {
     AccessToken,
     LinkState,
     SyncCursor,
+    Institution,
 }
 
 pub struct Store<'a>(&'a mut SqliteStore);
@@ -32,6 +33,10 @@ impl<'a> Store<'a> {
                 (PlaidLinks::AccessToken, link.access_token.as_str().into()),
                 (PlaidLinks::LinkState, to_status_enum(&link.state).into()),
                 (PlaidLinks::SyncCursor, link.sync_cursor.as_deref().into()),
+                (
+                    PlaidLinks::Institution,
+                    link.institution_id.as_deref().into(),
+                ),
             ])
             .and_where(Expr::col(PlaidLinks::Id).eq(link.item_id.as_str()))
             .build(SqliteQueryBuilder);
@@ -51,6 +56,7 @@ impl<'a> Store<'a> {
                 PlaidLinks::AccessToken,
                 PlaidLinks::LinkState,
                 PlaidLinks::SyncCursor,
+                PlaidLinks::Institution,
             ])
             .from(PlaidLinks::Table)
             .and_where(Expr::col(PlaidLinks::Id).eq(id))
@@ -71,6 +77,7 @@ impl<'a> Store<'a> {
                 PlaidLinks::AccessToken,
                 PlaidLinks::LinkState,
                 PlaidLinks::SyncCursor,
+                PlaidLinks::Institution,
             ])
             .from(PlaidLinks::Table)
             .build(SqliteQueryBuilder);
@@ -95,12 +102,14 @@ impl<'a> Store<'a> {
                 PlaidLinks::Alias,
                 PlaidLinks::AccessToken,
                 PlaidLinks::LinkState,
+                PlaidLinks::Institution,
             ])
             .values_panic(vec![
                 link.item_id.as_str().into(),
                 link.alias.as_str().into(),
                 link.access_token.as_str().into(),
                 to_status_enum(&link.state).as_str().into(),
+                link.institution_id.as_deref().into(),
             ])
             .build(SqliteQueryBuilder);
 
@@ -120,6 +129,7 @@ impl<'a> Store<'a> {
                 PlaidLinks::Alias,
                 PlaidLinks::AccessToken,
                 PlaidLinks::LinkState,
+                PlaidLinks::Institution,
             ]))
             .build(SqliteQueryBuilder);
 
@@ -144,6 +154,7 @@ where
             access_token: row.try_get("access_token")?,
             state: from_status_enum(row.try_get("link_state")?).unwrap(),
             sync_cursor: row.try_get("sync_cursor")?,
+            institution_id: row.try_get("institution")?,
         })
     }
 }
@@ -189,6 +200,7 @@ pub(crate) mod tests {
                 item_id: Ulid::new().to_string(),
                 state: crate::plaid::LinkStatus::Active,
                 sync_cursor: None,
+                institution_id: None,
             };
 
             self.store.links().save(&link).await.unwrap();
