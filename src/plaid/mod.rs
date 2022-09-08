@@ -7,6 +7,7 @@ use tabwriter::TabWriter;
 use tracing::{info, warn};
 
 use crate::settings::Settings;
+use crate::store::{institution::Institution, SqliteStore};
 use crate::COUNTRY_CODES;
 
 pub struct LinkController {
@@ -14,7 +15,37 @@ pub struct LinkController {
 }
 
 impl LinkController {
-    pub async fn new(
+    pub async fn new(mut store: SqliteStore) -> Result<LinkController> {
+        let mut connections = vec![];
+        let links = store.links().list().await?;
+
+        let ins_cache: HashMap<String, String> = store
+            .institutions()
+            .list()
+            .await?
+            .into_iter()
+            .map(|i| (i.id, i.name))
+            .collect();
+
+        for link in links {
+            let accounts = store.accounts().by_item(&link.item_id).await?;
+
+            connections.push(Connection {
+                accounts,
+                state: link.state.clone(),
+                alias: link.alias,
+                item_id: link.item_id,
+                ins_name: ins_cache
+                    .get(&link.institution_id.unwrap())
+                    .unwrap()
+                    .to_string(),
+            });
+        }
+
+        Ok(LinkController { connections })
+    }
+
+    pub async fn from_upstream(
         client: Plaid,
         mut store: crate::store::SqliteStore,
     ) -> Result<LinkController> {
@@ -32,6 +63,16 @@ impl LinkController {
             .into_iter()
             .map(|i| (i.institution_id, i.name))
             .collect();
+
+        for (k, v) in ins_cache.iter() {
+            store
+                .institutions()
+                .save(&Institution {
+                    id: k.clone(),
+                    name: v.clone(),
+                })
+                .await?;
+        }
 
         for mut link in links {
             let canonical = client.item(&link.access_token).await?;

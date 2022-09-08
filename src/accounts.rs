@@ -37,11 +37,9 @@ impl PartialEq<AccountType> for AccountTypeWrapper {
 }
 
 async fn print(settings: Settings) -> Result<()> {
-    let link_controller = crate::plaid::LinkController::new(
-        default_plaid_client(&settings),
-        crate::store::SqliteStore::new(&settings.db_file).await?,
-    )
-    .await?;
+    let link_controller =
+        crate::plaid::LinkController::new(crate::store::SqliteStore::new(&settings.db_file).await?)
+            .await?;
 
     let stdout = std::io::stdout().lock();
 

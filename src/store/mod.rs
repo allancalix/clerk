@@ -1,10 +1,13 @@
 mod account;
+pub(crate) mod institution;
 pub(crate) mod link;
 mod txn;
 
 use std::sync::Arc;
 
 use thiserror::Error;
+sea_query::sea_query_driver_sqlite!();
+pub use sea_query_driver_sqlite::bind_query;
 
 use crate::upstream::TransactionEntry;
 
@@ -46,6 +49,10 @@ impl SqliteStore {
         Ok(Self {
             conn: Arc::new(pool),
         })
+    }
+
+    pub fn institutions(&mut self) -> institution::Store {
+        institution::Store::new(self)
     }
 
     pub fn links(&mut self) -> link::Store {
