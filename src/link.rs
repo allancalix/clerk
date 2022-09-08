@@ -105,13 +105,7 @@ async fn server(settings: Settings, mode: plaid_link::LinkMode, name: &str) -> R
                     .await
                     .unwrap();
 
-                for acc in plaid.accounts(token.access_token).await.unwrap() {
-                    store
-                        .accounts()
-                        .save(&token.item_id, &acc.into())
-                        .await
-                        .unwrap();
-                }
+                LinkController::initialize(plaid, store).await.unwrap();
             }
         }
 

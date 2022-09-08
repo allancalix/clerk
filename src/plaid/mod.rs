@@ -45,6 +45,74 @@ impl LinkController {
         Ok(LinkController { connections })
     }
 
+    pub async fn initialize(
+        client: Plaid,
+        mut store: crate::store::SqliteStore,
+    ) -> Result<LinkController> {
+        let mut connections = vec![];
+        let links = store.links().list().await?;
+
+        let ins_cache: HashMap<String, String> = client
+            .get_institutions(&rplaid::model::InstitutionsGetRequest {
+                count: 500,
+                offset: 0,
+                country_codes: &COUNTRY_CODES,
+                options: None,
+            })
+            .await?
+            .into_iter()
+            .map(|i| (i.institution_id, i.name))
+            .collect();
+
+        for (k, v) in ins_cache.iter() {
+            store
+                .institutions()
+                .save(&Institution {
+                    id: k.clone(),
+                    name: v.clone(),
+                })
+                .await?;
+        }
+
+        for mut link in links {
+            let canonical = client.item(&link.access_token).await?;
+
+            if let Some(e) = &canonical.error {
+                if let Some("ITEM_LOGIN_REQUIRED") = &e.error_code.as_deref() {
+                    info!("Link: {} failed with status {:?}", link.item_id, e);
+
+                    link.state =
+                        LinkStatus::Degraded(e.error_message.as_ref().unwrap().to_string());
+
+                    store.links().update(&link).await?;
+
+                    continue;
+                }
+
+                warn!("Unexpected link error. id={}", link.item_id);
+            }
+
+            for acc in client.accounts(link.access_token).await.unwrap() {
+                store.accounts().save(&link.item_id, &acc.into()).await?;
+            }
+
+            let accounts = store.accounts().by_item(&link.item_id).await?;
+
+            connections.push(Connection {
+                accounts,
+                state: link.state.clone(),
+                alias: link.alias,
+                item_id: link.item_id,
+                ins_name: ins_cache
+                    .get(&link.institution_id.unwrap())
+                    .unwrap()
+                    .to_string(),
+            });
+        }
+
+        Ok(LinkController { connections })
+    }
+
     pub async fn from_upstream(
         client: Plaid,
         mut store: crate::store::SqliteStore,
