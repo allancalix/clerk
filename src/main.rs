@@ -13,9 +13,6 @@ use tracing_subscriber::{
     filter::LevelFilter, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter,
 };
 
-#[global_allocator]
-static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
-
 static CLIENT_NAME: &str = "clerk";
 static COUNTRY_CODES: [&str; 1] = ["US"];
 
