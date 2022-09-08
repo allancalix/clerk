@@ -37,16 +37,15 @@ impl PartialEq<AccountType> for AccountTypeWrapper {
 }
 
 async fn print(settings: Settings) -> Result<()> {
-    let plaid = default_plaid_client(&settings);
-    let store = crate::store::SqliteStore::new(&settings.db_file).await?;
+    let link_controller = crate::plaid::LinkController::new(
+        default_plaid_client(&settings),
+        crate::store::SqliteStore::new(&settings.db_file).await?,
+    )
+    .await?;
 
-    let link_controller = crate::plaid::LinkController::new(plaid, store).await?;
+    let stdout = std::io::stdout().lock();
 
-    let table = link_controller.display_accounts_table()?;
-
-    println!("{}", table);
-
-    Ok(())
+    link_controller.display_accounts_table(stdout)
 }
 
 async fn balances(settings: Settings) -> Result<()> {
@@ -75,7 +74,8 @@ async fn balances(settings: Settings) -> Result<()> {
         }
     }
 
-    let mut tw = TabWriter::new(vec![]);
+    let stdout = std::io::stdout().lock();
+    let mut tw = TabWriter::new(stdout);
 
     writeln!(tw, "Assets")?;
     writeln!(tw, "Name\tAvailable\tCurrent")?;
@@ -138,9 +138,6 @@ async fn balances(settings: Settings) -> Result<()> {
             )?;
         }
     }
-
-    let table = String::from_utf8(tw.into_inner()?)?;
-    println!("{}", table);
 
     Ok(())
 }

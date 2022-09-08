@@ -1,6 +1,7 @@
+use std::collections::HashMap;
 use std::io::Write;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use rplaid::client::{Builder, Credentials, Plaid};
 use tabwriter::TabWriter;
 use tracing::{info, warn};
@@ -20,6 +21,18 @@ impl LinkController {
         let mut connections = vec![];
         let links = store.links().list().await?;
 
+        let ins_cache: HashMap<String, String> = client
+            .get_institutions(&rplaid::model::InstitutionsGetRequest {
+                count: 500,
+                offset: 0,
+                country_codes: &COUNTRY_CODES,
+                options: None,
+            })
+            .await?
+            .into_iter()
+            .map(|i| (i.institution_id, i.name))
+            .collect();
+
         for mut link in links {
             let canonical = client.item(&link.access_token).await?;
 
@@ -38,94 +51,57 @@ impl LinkController {
                 warn!("Unexpected link error. id={}", link.item_id);
             }
 
-            let ins: Result<rplaid::model::Institution> = match &canonical.institution_id {
-                Some(id) => Ok(client
-                    .get_institution_by_id(&rplaid::model::InstitutionGetRequest {
-                        institution_id: id.as_str(),
-                        country_codes: &COUNTRY_CODES,
-                        options: None,
-                    })
-                    .await?),
-                None => Err(anyhow!(
-                    "no institutions associated with item {}",
-                    link.item_id
-                )),
-            };
-
-            let accounts = match link.state {
-                LinkStatus::Active => {
-                    let upstream_clients = client.accounts(&link.access_token).await?;
-                    let local_clients = store.accounts().by_item(&link.item_id).await?;
-
-                    let mut accounts = vec![];
-                    for upstream in upstream_clients {
-                        if let Some(account) = local_clients
-                            .iter()
-                            .find(|acc| acc.id == upstream.account_id)
-                        {
-                            accounts.push(account.clone());
-
-                            continue;
-                        }
-
-                        let account = upstream.into();
-                        store.accounts().save(&link.item_id, &account).await?;
-
-                        accounts.push(account);
-                    }
-
-                    accounts
-                }
-                _ => vec![],
-            };
+            let accounts = store.accounts().by_item(&link.item_id).await?;
 
             connections.push(Connection {
-                canonical,
                 accounts,
                 state: link.state.clone(),
-                institution: ins?,
                 alias: link.alias,
                 item_id: link.item_id,
+                ins_name: ins_cache
+                    .get(&link.institution_id.unwrap())
+                    .unwrap()
+                    .to_string(),
             });
         }
 
         Ok(LinkController { connections })
     }
 
-    pub fn display_connections_table(&self) -> Result<String> {
-        let mut tw = TabWriter::new(vec![]);
+    pub fn display_connections_table<T: std::io::Write>(&self, wr: T) -> Result<()> {
+        let mut tw = TabWriter::new(wr);
         writeln!(tw, "Name\tItem ID\tInstitution\tState")?;
 
         for conn in &self.connections {
             writeln!(
                 tw,
                 "{}\t{}\t{}\t{:?}",
-                conn.alias, conn.item_id, conn.institution.name, conn.state
+                conn.alias, conn.item_id, conn.ins_name, conn.state
             )?;
         }
 
-        Ok(String::from_utf8(tw.into_inner()?)?)
+        tw.flush()?;
+
+        Ok(())
     }
 
-    pub fn display_accounts_table(&self) -> Result<String> {
-        let mut tw = TabWriter::new(vec![]);
-        writeln!(tw, "Institution\tAccount\tAccount ID\tType\tStatus")?;
+    pub fn display_accounts_table<T: std::io::Write>(&self, wr: T) -> Result<()> {
+        let mut tw = TabWriter::new(wr);
+        writeln!(tw, "Institution\tAccount\tAccount ID\tType")?;
 
         for conn in &self.connections {
             for account in &conn.accounts {
                 writeln!(
                     tw,
-                    "{}\t{}\t{}\t{:?}\t{:?}",
-                    conn.institution.name,
-                    account.name,
-                    account.id,
-                    account.ty,
-                    conn.canonical.consent_expiration_time
+                    "{}\t{}\t{}\t{:?}",
+                    conn.ins_name, account.name, account.id, account.ty,
                 )?;
             }
         }
 
-        Ok(String::from_utf8(tw.into_inner()?)?)
+        tw.flush()?;
+
+        Ok(())
     }
 }
 
@@ -146,6 +122,7 @@ pub struct Link {
     pub item_id: String,
     pub state: LinkStatus,
     pub sync_cursor: Option<String>,
+    pub institution_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -159,8 +136,6 @@ struct Connection {
     alias: String,
     item_id: String,
     state: LinkStatus,
-
-    canonical: rplaid::model::Item,
-    institution: rplaid::model::Institution,
+    ins_name: String,
     accounts: Vec<crate::core::Account>,
 }
