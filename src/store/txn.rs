@@ -1,10 +1,8 @@
 use sea_query::{func::Func, types::Alias, Expr, Iden, Query, SqliteQueryBuilder};
-sea_query::sea_query_driver_sqlite!();
-use sea_query_driver_sqlite::bind_query;
 use serde::Serialize;
 use sqlx::{Connection, Row};
 
-use super::{Result, SqliteStore, TransactionEntry};
+use super::{bind_query, Result, SqliteStore, TransactionEntry};
 
 #[derive(Iden)]
 enum Transactions {

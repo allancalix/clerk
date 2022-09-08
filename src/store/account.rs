@@ -1,11 +1,8 @@
 use sea_query::{Expr, Iden, Query, SqliteQueryBuilder};
-sea_query::sea_query_driver_sqlite!();
-use sea_query_driver_sqlite::bind_query;
 use sqlx::Row;
 
+use super::{bind_query, Result, SqliteStore};
 use crate::core::Account;
-
-use super::{Result, SqliteStore};
 
 #[derive(Iden)]
 enum Accounts {

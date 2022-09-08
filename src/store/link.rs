@@ -1,11 +1,8 @@
 use sea_query::{Expr, Iden, Query, SqliteQueryBuilder};
-sea_query::sea_query_driver_sqlite!();
-use sea_query_driver_sqlite::bind_query;
 use sqlx::{FromRow, Row};
 
+use super::{bind_query, Result, SqliteStore};
 use crate::plaid::{Link, LinkStatus};
-
-use super::{Result, SqliteStore};
 
 #[derive(Iden)]
 enum PlaidLinks {

@@ -169,7 +169,7 @@ async fn status(settings: Settings) -> Result<()> {
     let store = store::SqliteStore::new(&settings.db_file).await?;
     let plaid = default_plaid_client(&settings);
 
-    let link_controller = LinkController::new(plaid, store).await?;
+    let link_controller = LinkController::from_upstream(plaid, store).await?;
 
     let stdout = std::io::stdout().lock();
 
