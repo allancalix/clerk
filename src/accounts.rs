@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 use std::io::prelude::*;
 
 use anyhow::Result;
@@ -20,22 +18,6 @@ lazy_static! {
     static ref ZERO_DOLLARS: Money<'static, Currency> = Money::from_minor(0_i64, iso::USD);
 }
 
-#[derive(Eq, PartialEq)]
-struct AccountTypeWrapper(AccountType);
-
-#[allow(clippy::derive_hash_xor_eq)]
-impl Hash for AccountTypeWrapper {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        format!("{:?}", self.0).hash(state);
-    }
-}
-
-impl PartialEq<AccountType> for AccountTypeWrapper {
-    fn eq(&self, other: &AccountType) -> bool {
-        self.0 == *other
-    }
-}
-
 async fn print(settings: Settings) -> Result<()> {
     let link_controller =
         crate::plaid::LinkController::new(crate::store::SqliteStore::new(&settings.db_file).await?)
@@ -52,7 +34,6 @@ async fn balances(settings: Settings) -> Result<()> {
 
     let links: Vec<Link> = store.links().list().await?;
 
-    let mut balances_by_type = HashMap::new();
     let mut futures = vec![];
     for link in links {
         futures.push(plaid.balances(link.access_token));
@@ -63,12 +44,10 @@ async fn balances(settings: Settings) -> Result<()> {
         .collect::<Vec<_>>()
         .await;
 
+    let mut accounts = vec![];
     for result in results {
         for account in result? {
-            balances_by_type
-                .entry(AccountTypeWrapper(account.r#type))
-                .or_insert(Vec::new())
-                .push(account);
+            accounts.push(account);
         }
     }
 
@@ -77,65 +56,67 @@ async fn balances(settings: Settings) -> Result<()> {
 
     writeln!(tw, "Assets")?;
     writeln!(tw, "Name\tAvailable\tCurrent")?;
-    for (_k, v) in balances_by_type
+    for account in accounts
         .iter()
-        .filter(|(t, _)| *t == &AccountType::Depository)
+        .filter(|account| account.r#type == AccountType::Depository)
     {
-        for b in v {
-            let currency_code = b
+        let currency_code = account
+            .balances
+            .iso_currency_code
+            .as_deref()
+            .and_then(iso::find)
+            .unwrap_or(iso::USD);
+        writeln!(
+            tw,
+            "{}\t{}\t{}",
+            account.name,
+            account
                 .balances
-                .iso_currency_code
-                .as_deref()
-                .and_then(iso::find)
-                .unwrap_or(iso::USD);
-            writeln!(
-                tw,
-                "{}\t{}\t{}",
-                b.name,
-                b.balances
-                    .available
-                    .map(|amount| { Money::from_decimal(amount, currency_code) })
-                    .as_ref()
-                    .unwrap_or(&ZERO_DOLLARS),
-                b.balances
-                    .current
-                    .map(|amount| { Money::from_decimal(amount, currency_code) })
-                    .as_ref()
-                    .unwrap_or(&ZERO_DOLLARS),
-            )?;
-        }
+                .available
+                .map(|amount| { Money::from_decimal(amount, currency_code) })
+                .as_ref()
+                .unwrap_or(&ZERO_DOLLARS),
+            account
+                .balances
+                .current
+                .map(|amount| { Money::from_decimal(amount, currency_code) })
+                .as_ref()
+                .unwrap_or(&ZERO_DOLLARS),
+        )?;
     }
 
     writeln!(tw, "\nLiabililties")?;
     writeln!(tw, "Name\tAvailable\tCurrent")?;
-    for (_k, v) in balances_by_type
+    for account in accounts
         .iter()
-        .filter(|(t, _)| *t == &AccountType::Credit)
+        .filter(|account| account.r#type == AccountType::Credit)
     {
-        for b in v {
-            let currency_code = b
+        let currency_code = account
+            .balances
+            .iso_currency_code
+            .as_deref()
+            .and_then(iso::find)
+            .unwrap_or(iso::USD);
+        writeln!(
+            tw,
+            "{}\t{}\t{}",
+            account.name,
+            account
                 .balances
-                .iso_currency_code
-                .as_deref()
-                .and_then(iso::find)
-                .unwrap_or(iso::USD);
-            writeln!(
-                tw,
-                "{}\t{}\t{}",
-                b.name,
-                b.balances
-                    .available
-                    .map(|amount| { Money::from_decimal(amount, currency_code) })
-                    .as_ref()
-                    .unwrap_or(&ZERO_DOLLARS),
-                b.balances
-                    .current
-                    .map(|amount| { Money::from_decimal(amount, currency_code) })
-                    .as_ref()
-                    .unwrap_or(&ZERO_DOLLARS),
-            )?;
-        }
+                .available
+                .map(|amount| { Money::from_decimal(amount, currency_code) })
+                .as_ref()
+                .unwrap_or(&ZERO_DOLLARS),
+            account
+                .balances
+                .current
+                .map(|amount| { Money::from_decimal(amount, currency_code) })
+                .as_ref()
+                .unwrap_or(&ZERO_DOLLARS),
+        )?;
     }
+
+    tw.flush()?;
 
     Ok(())
 }
