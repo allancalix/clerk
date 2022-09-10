@@ -16,7 +16,7 @@ At the end of the day the data is yours and you can query the database using sql
 directly for building UIs, account monitoring, or all sorts of purposes. For some
 examples check out:
 * [clerk beancount importer](https://github.com/allancalix/clerk-importer)
-* [clerk account alerting example](https://github.com/allancalix/clerk-importer)
+* [clerk account alerting example](https://github.com/allancalix/clerk-alert-example)
 
 ## Installation
 
