@@ -23,12 +23,13 @@ impl Settings {
     pub fn new(config_path: Option<&str>) -> Result<Self, config::ConfigError> {
         let mut s = Config::builder()
             .set_default("db_file", default_data_path())?
-            .add_source(File::with_name(&default_config_path()))
             .add_source(Environment::with_prefix("CLERK"));
 
         if let Some(path) = config_path {
             s = s.add_source(File::with_name(path));
-        }
+        } else {
+            s = s.add_source(File::with_name(&default_config_path()));
+	}
 
         s.build()?.try_deserialize()
     }

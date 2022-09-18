@@ -12,7 +12,6 @@ use clap::{arg, Command};
 use tracing_subscriber::{
     filter::LevelFilter, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter,
 };
-use tracing_tree::HierarchicalLayer;
 
 static CLIENT_NAME: &str = "clerk";
 static COUNTRY_CODES: [&str; 1] = ["US"];
@@ -56,11 +55,6 @@ async fn run() -> Result<()> {
                     .from_env_lossy(),
             )
             .with(tracing_subscriber::fmt::layer())
-            .with(
-                HierarchicalLayer::new(2)
-                    .with_targets(true)
-                    .with_bracketed_fields(true),
-            )
             .init();
     }
 
