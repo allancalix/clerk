@@ -30,7 +30,7 @@ async fn print(settings: Settings) -> Result<()> {
 
 async fn balances(settings: Settings) -> Result<()> {
     let mut store = crate::store::SqliteStore::new(&settings.db_file).await?;
-    let plaid = default_plaid_client(&settings);
+    let plaid = default_plaid_client(&settings.plaid);
 
     let links: Vec<Link> = store.links().list().await?;
 

@@ -14,7 +14,6 @@ use tracing_subscriber::{
 };
 
 static CLIENT_NAME: &str = "clerk";
-static COUNTRY_CODES: [&str; 1] = ["US"];
 
 async fn run() -> Result<()> {
     let app = Command::new(CLIENT_NAME)

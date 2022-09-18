@@ -52,7 +52,7 @@ async fn shutdown_signal(rx: Receiver<()>) {
 }
 
 async fn server(settings: Settings, mode: plaid_link::LinkMode, name: &str) -> Result<()> {
-    let plaid = default_plaid_client(&settings);
+    let plaid = default_plaid_client(&settings.plaid);
 
     let (tx, rx) = bounded(1);
     let server = plaid_link::LinkServer::new(plaid);
@@ -66,6 +66,8 @@ async fn server(settings: Settings, mode: plaid_link::LinkMode, name: &str) -> R
 
     let mode = std::sync::Arc::new(mode);
     let m = mode.clone();
+    let settings = std::sync::Arc::new(settings);
+    let settings_capture = settings.clone();
     tokio::spawn(async move {
         let token = listener.recv().await.unwrap();
         let name = match token.state.context {
@@ -73,7 +75,7 @@ async fn server(settings: Settings, mode: plaid_link::LinkMode, name: &str) -> R
             None => "".to_string(),
         };
 
-        let plaid = default_plaid_client(&settings);
+        let plaid = default_plaid_client(&settings_capture.plaid);
         match m.as_ref() {
             plaid_link::LinkMode::Update(_) => {
                 let link = plaid.item(&token.access_token).await.unwrap();
@@ -105,7 +107,9 @@ async fn server(settings: Settings, mode: plaid_link::LinkMode, name: &str) -> R
                     .await
                     .unwrap();
 
-                LinkController::initialize(plaid, store).await.unwrap();
+                LinkController::initialize(plaid, &settings_capture.plaid, store)
+                    .await
+                    .unwrap();
             }
         }
 
@@ -120,6 +124,7 @@ async fn server(settings: Settings, mode: plaid_link::LinkMode, name: &str) -> R
     context.insert(LINK_NAME_KEY.to_string(), name.to_string());
 
     let state = State {
+        country_codes: settings.plaid.country_codes.clone(),
         user_id: "test-user".to_string(),
         context: Some(context),
     };
@@ -150,7 +155,7 @@ async fn server(settings: Settings, mode: plaid_link::LinkMode, name: &str) -> R
 
 async fn remove(settings: Settings, item_id: &str) -> Result<()> {
     let mut store = store::SqliteStore::new(&settings.db_file).await?;
-    let plaid = default_plaid_client(&settings);
+    let plaid = default_plaid_client(&settings.plaid);
 
     let link = store.links().link(item_id).await?;
     plaid.item_del(&link.access_token).await?;
@@ -161,9 +166,9 @@ async fn remove(settings: Settings, item_id: &str) -> Result<()> {
 
 async fn status(settings: Settings) -> Result<()> {
     let store = store::SqliteStore::new(&settings.db_file).await?;
-    let plaid = default_plaid_client(&settings);
+    let plaid = default_plaid_client(&settings.plaid);
 
-    let link_controller = LinkController::from_upstream(plaid, store).await?;
+    let link_controller = LinkController::from_upstream(plaid, &settings.plaid, store).await?;
 
     let stdout = std::io::stdout().lock();
 

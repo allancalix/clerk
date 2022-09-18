@@ -13,11 +13,11 @@ use lazy_static::lazy_static;
 use rplaid::{client::Plaid, model::*};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tokio::sync::broadcast;
 use url::Url;
 
 static CLIENT_NAME: &str = "clerk";
 static PRODUCTS: [&str; 1] = ["transactions"];
-static COUNTRY_CODES: [&str; 1] = ["US"];
 
 lazy_static! {
     // HACK: Url doesn't provide a good way to initialize a Url from a relative
@@ -106,6 +106,10 @@ where
 pub struct State {
     /// A system-specific user ID for which the credentials are being created.
     pub user_id: String,
+    /// The link UI will limit institutions to those from the countries provided.
+    /// One of: US, CA, DE, ES, FR, GB, IE, IT, NL.
+    /// https://plaid.com/docs/api/tokens/#link-token-create-request-country-codes
+    pub country_codes: Vec<String>,
     /// Arbitrary key value pairs containing metadata about the exchange request.
     pub context: Option<HashMap<String, String>>,
 }
@@ -143,10 +147,7 @@ where
                 )?)?),
                 _ => unimplemented!(),
             },
-            None => Ok(Self {
-                user_id: "".to_string(),
-                context: None,
-            }),
+            None => Err(LinkError::InvalidArgument("no state object found".into())),
         }
     }
 }
@@ -161,8 +162,6 @@ pub struct Token {
     /// Plaid link-flow state context.
     pub state: State,
 }
-
-use tokio::sync::broadcast;
 
 pub struct LinkServer {
     pub client: Plaid,
@@ -199,12 +198,13 @@ async fn initialize_link(
     state: State,
     client: Extension<Arc<Plaid>>,
 ) -> impl IntoResponse {
+    let country_codes: Vec<&str> = state.country_codes.iter().map(AsRef::as_ref).collect();
     let req = match &mode {
         LinkMode::Create => CreateLinkTokenRequest {
             client_name: CLIENT_NAME,
             user: LinkUser::new(&state.user_id),
             language: "en",
-            country_codes: &COUNTRY_CODES,
+            country_codes: country_codes.as_slice(),
             products: &crate::PRODUCTS,
             ..CreateLinkTokenRequest::default()
         },
@@ -212,7 +212,7 @@ async fn initialize_link(
             client_name: CLIENT_NAME,
             user: LinkUser::new(&state.user_id),
             language: "en",
-            country_codes: &COUNTRY_CODES,
+            country_codes: country_codes.as_slice(),
             access_token: Some(token),
             ..CreateLinkTokenRequest::default()
         },
@@ -326,6 +326,7 @@ mod tests {
     #[tokio::test]
     async fn extract_state_from_query_param() {
         let state = State {
+            country_codes: vec!["US".to_string()],
             user_id: "foobar@tester.com".to_string(),
             context: None,
         };
@@ -334,17 +335,6 @@ mod tests {
             "http://localhost:4000/init?state={}",
             state.clone().to_opaque().unwrap()
         ));
-        assert_eq!(State::from_request(&mut req).await.unwrap(), state)
-    }
-
-    #[tokio::test]
-    async fn init_without_state_params_provides_default() {
-        let state = State {
-            user_id: "".to_string(),
-            context: None,
-        };
-
-        let mut req = request_parts_from_uri("http://localhost:4000/init");
         assert_eq!(State::from_request(&mut req).await.unwrap(), state)
     }
 }

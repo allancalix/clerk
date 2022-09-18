@@ -169,6 +169,7 @@ mod tests {
     async fn save_transaction() {
         let mut store = test_store().await;
         let link = Link {
+            institution_id: Some("10".to_string()),
             alias: "test_link".to_string(),
             access_token: "1234".to_string(),
             item_id: "plaid-id-123".to_string(),
@@ -207,6 +208,7 @@ mod tests {
     async fn delete() {
         let mut store = test_store().await;
         let link = Link {
+            institution_id: Some("10".to_string()),
             alias: "test_link".to_string(),
             access_token: "1234".to_string(),
             item_id: "plaid-id-123".to_string(),

@@ -6,9 +6,8 @@ use rplaid::client::{Builder, Credentials, Plaid};
 use tabwriter::TabWriter;
 use tracing::{info, warn};
 
-use crate::settings::Settings;
+use crate::settings::Plaid as PlaidSettings;
 use crate::store::{institution::Institution, SqliteStore};
-use crate::COUNTRY_CODES;
 
 pub struct LinkController {
     connections: Vec<Connection>,
@@ -47,16 +46,18 @@ impl LinkController {
 
     pub async fn initialize(
         client: Plaid,
+        settings: &PlaidSettings,
         mut store: crate::store::SqliteStore,
     ) -> Result<LinkController> {
         let mut connections = vec![];
         let links = store.links().list().await?;
 
+        let country_codes: Vec<&str> = settings.country_codes.iter().map(AsRef::as_ref).collect();
         let ins_cache: HashMap<String, String> = client
             .get_institutions(&rplaid::model::InstitutionsGetRequest {
                 count: 500,
                 offset: 0,
-                country_codes: &COUNTRY_CODES,
+                country_codes: country_codes.as_slice(),
                 options: None,
             })
             .await?
@@ -115,16 +116,18 @@ impl LinkController {
 
     pub async fn from_upstream(
         client: Plaid,
+        settings: &PlaidSettings,
         mut store: crate::store::SqliteStore,
     ) -> Result<LinkController> {
         let mut connections = vec![];
         let links = store.links().list().await?;
 
+        let country_codes: Vec<&str> = settings.country_codes.iter().map(AsRef::as_ref).collect();
         let ins_cache: HashMap<String, String> = client
             .get_institutions(&rplaid::model::InstitutionsGetRequest {
                 count: 500,
                 offset: 0,
-                country_codes: &COUNTRY_CODES,
+                country_codes: country_codes.as_slice(),
                 options: None,
             })
             .await?
@@ -214,13 +217,13 @@ impl LinkController {
     }
 }
 
-pub(crate) fn default_plaid_client(settings: &Settings) -> rplaid::client::Plaid {
+pub(crate) fn default_plaid_client(settings: &PlaidSettings) -> rplaid::client::Plaid {
     Builder::new()
         .with_credentials(Credentials {
-            client_id: settings.plaid.client_id.clone(),
-            secret: settings.plaid.secret.clone(),
+            client_id: settings.client_id.clone(),
+            secret: settings.secret.clone(),
         })
-        .with_env(settings.plaid.env.clone())
+        .with_env(settings.env.clone())
         .build()
 }
 

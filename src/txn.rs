@@ -10,7 +10,7 @@ use crate::upstream::{plaid::Source, TransactionEvent, TransactionSource};
 #[tracing::instrument]
 async fn pull(settings: Settings) -> Result<()> {
     let mut store = SqliteStore::new(&settings.db_file).await?;
-    let plaid = default_plaid_client(&settings);
+    let plaid = default_plaid_client(&settings.plaid);
     let links: Vec<Link> = store.links().list().await?;
 
     for link in links {

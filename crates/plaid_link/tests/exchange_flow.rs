@@ -7,6 +7,7 @@ const INSTITUTION_ID: &str = "ins_129571";
 
 fn test_state() -> State {
     State {
+        country_codes: vec!["US".to_string()],
         user_id: "test-user".to_string(),
         context: None,
     }
