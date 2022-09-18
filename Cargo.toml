@@ -13,7 +13,7 @@ anyhow = "1.0"
 axum = "0.5"
 chrono = { version = "0.4", features = ["serde"] }
 clap = "3.2"
-config = "0.13"
+config = { version = "0.13", default-features = false, features = ["toml"] }
 crossbeam-channel = "0.5"
 dirs = "4.0"
 futures-lite = "1.12"
