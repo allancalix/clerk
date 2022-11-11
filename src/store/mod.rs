@@ -6,8 +6,6 @@ mod txn;
 use std::sync::Arc;
 
 use thiserror::Error;
-sea_query::sea_query_driver_sqlite!();
-pub use sea_query_driver_sqlite::bind_query;
 
 use crate::upstream::TransactionEntry;
 

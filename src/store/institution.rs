@@ -1,7 +1,8 @@
 use sea_query::{Iden, Query, SqliteQueryBuilder};
+use sea_query_binder::SqlxBinder;
 use sqlx::{FromRow, Row};
 
-use super::{bind_query, Result, SqliteStore};
+use super::{Result, SqliteStore};
 
 #[derive(Iden)]
 enum Institutions {
@@ -40,9 +41,9 @@ impl<'a> Store<'a> {
         let (query, values) = Query::select()
             .columns([Institutions::Id, Institutions::Name])
             .from(Institutions::Table)
-            .build(SqliteQueryBuilder);
+            .build_sqlx(SqliteQueryBuilder);
 
-        let rows = bind_query(sqlx::query(&query), &values)
+        let rows = sqlx::query_with(&query, values)
             .fetch_all(&mut self.0.conn.acquire().await?)
             .await?;
 
@@ -64,9 +65,9 @@ impl<'a> Store<'a> {
                     .update_column(Institutions::Name)
                     .to_owned(),
             )
-            .build(SqliteQueryBuilder);
+            .build_sqlx(SqliteQueryBuilder);
 
-        bind_query(sqlx::query(&query), &values)
+        sqlx::query_with(&query, values)
             .execute(&mut self.0.conn.acquire().await?)
             .await?;
 

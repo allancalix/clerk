@@ -1,7 +1,8 @@
 use sea_query::{Expr, Iden, Query, SqliteQueryBuilder};
+use sea_query_binder::SqlxBinder;
 use sqlx::{FromRow, Row};
 
-use super::{bind_query, Result, SqliteStore};
+use super::{Result, SqliteStore};
 use crate::plaid::{Link, LinkStatus};
 
 #[derive(Iden)]
@@ -36,9 +37,9 @@ impl<'a> Store<'a> {
                 ),
             ])
             .and_where(Expr::col(PlaidLinks::Id).eq(link.item_id.as_str()))
-            .build(SqliteQueryBuilder);
+            .build_sqlx(SqliteQueryBuilder);
 
-        bind_query(sqlx::query(&query), &values)
+        sqlx::query_with(&query, values)
             .execute(&mut self.0.conn.acquire().await?)
             .await?;
 
@@ -57,9 +58,9 @@ impl<'a> Store<'a> {
             ])
             .from(PlaidLinks::Table)
             .and_where(Expr::col(PlaidLinks::Id).eq(id))
-            .build(SqliteQueryBuilder);
+            .build_sqlx(SqliteQueryBuilder);
 
-        let row = bind_query(sqlx::query(&query), &values)
+        let row = sqlx::query_with(&query, values)
             .fetch_one(&mut self.0.conn.acquire().await?)
             .await?;
 
@@ -77,9 +78,9 @@ impl<'a> Store<'a> {
                 PlaidLinks::Institution,
             ])
             .from(PlaidLinks::Table)
-            .build(SqliteQueryBuilder);
+            .build_sqlx(SqliteQueryBuilder);
 
-        let rows = bind_query(sqlx::query(&query), &values)
+        let rows = sqlx::query_with(&query, values)
             .fetch_all(&mut self.0.conn.acquire().await?)
             .await?;
 
@@ -108,9 +109,9 @@ impl<'a> Store<'a> {
                 to_status_enum(&link.state).as_str().into(),
                 link.institution_id.as_deref().into(),
             ])
-            .build(SqliteQueryBuilder);
+            .build_sqlx(SqliteQueryBuilder);
 
-        bind_query(sqlx::query(&query), &values)
+        sqlx::query_with(&query, values)
             .execute(&mut self.0.conn.acquire().await?)
             .await?;
 
@@ -128,9 +129,9 @@ impl<'a> Store<'a> {
                 PlaidLinks::LinkState,
                 PlaidLinks::Institution,
             ]))
-            .build(SqliteQueryBuilder);
+            .build_sqlx(SqliteQueryBuilder);
 
-        let row = bind_query(sqlx::query(&query), &values)
+        let row = sqlx::query_with(&query, values)
             .fetch_one(&mut self.0.conn.acquire().await?)
             .await?;
 

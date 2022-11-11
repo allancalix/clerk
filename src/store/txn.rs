@@ -1,8 +1,9 @@
 use sea_query::{func::Func, types::Alias, Expr, Iden, Query, SqliteQueryBuilder};
+use sea_query_binder::SqlxBinder;
 use serde::Serialize;
 use sqlx::{Connection, Row};
 
-use super::{bind_query, Result, SqliteStore, TransactionEntry};
+use super::{Result, SqliteStore, TransactionEntry};
 
 #[derive(Iden)]
 enum Transactions {
@@ -44,9 +45,9 @@ impl<'a> Store<'a> {
             .columns([Transactions::Id])
             .from(Transactions::Table)
             .and_where(Expr::col(TransactionsLocal::UpstreamId).eq(id))
-            .build(SqliteQueryBuilder);
+            .build_sqlx(SqliteQueryBuilder);
 
-        Ok(bind_query(sqlx::query(&query), &values)
+        Ok(sqlx::query_with(&query, values)
             .fetch_optional(&mut self.0.conn.acquire().await?)
             .await?
             .map(|row| row.try_get("id").unwrap()))
@@ -60,9 +61,9 @@ impl<'a> Store<'a> {
                 serde_json::to_string(&source)?.into(),
             )])
             .and_where(Expr::col(Transactions::Id).eq(id))
-            .build(SqliteQueryBuilder);
+            .build_sqlx(SqliteQueryBuilder);
 
-        bind_query(sqlx::query(&query), &values)
+        sqlx::query_with(&query, values)
             .execute(&mut self.0.conn.acquire().await?)
             .await?;
 
@@ -73,9 +74,9 @@ impl<'a> Store<'a> {
         let (query, values) = Query::delete()
             .from_table(Transactions::Table)
             .and_where(Expr::col(Transactions::Id).eq(id))
-            .build(SqliteQueryBuilder);
+            .build_sqlx(SqliteQueryBuilder);
 
-        bind_query(sqlx::query(&query), &values)
+        sqlx::query_with(&query, values)
             .execute(&mut self.0.conn.acquire().await?)
             .await?;
 
@@ -109,11 +110,9 @@ impl<'a> Store<'a> {
                             account_id.into(),
                             source.into(),
                         ])
-                        .build(SqliteQueryBuilder);
+                        .build_sqlx(SqliteQueryBuilder);
 
-                    bind_query(sqlx::query(&query), &values)
-                        .execute(conn)
-                        .await?;
+                    sqlx::query_with(&query, values).execute(conn).await?;
 
                     Ok(())
                 })

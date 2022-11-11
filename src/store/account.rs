@@ -1,7 +1,8 @@
 use sea_query::{Expr, Iden, Query, SqliteQueryBuilder};
+use sea_query_binder::SqlxBinder;
 use sqlx::Row;
 
-use super::{bind_query, Result, SqliteStore};
+use super::{Result, SqliteStore};
 use crate::core::Account;
 
 #[derive(Iden)]
@@ -26,9 +27,9 @@ impl<'a> Store<'a> {
             .from(Accounts::Table)
             .columns([Accounts::Id, Accounts::Name, Accounts::Type])
             .and_where(Expr::col(Accounts::Id).eq(id))
-            .build(SqliteQueryBuilder);
+            .build_sqlx(SqliteQueryBuilder);
 
-        Ok(bind_query(sqlx::query(&query), &values)
+        Ok(sqlx::query_with(&query, values)
             .fetch_optional(&mut self.0.conn.acquire().await?)
             .await?
             .map(|row| Account {
@@ -43,9 +44,9 @@ impl<'a> Store<'a> {
             .from(Accounts::Table)
             .columns([Accounts::Id, Accounts::Name, Accounts::Type])
             .and_where(Expr::col(Accounts::ItemId).eq(id))
-            .build(SqliteQueryBuilder);
+            .build_sqlx(SqliteQueryBuilder);
 
-        let rows = bind_query(sqlx::query(&query), &values)
+        let rows = sqlx::query_with(&query, values)
             .fetch_all(&mut self.0.conn.acquire().await?)
             .await?;
 
@@ -74,9 +75,9 @@ impl<'a> Store<'a> {
                 account.name.as_str().into(),
                 account.ty.as_str().into(),
             ])
-            .build(SqliteQueryBuilder);
+            .build_sqlx(SqliteQueryBuilder);
 
-        bind_query(sqlx::query(&query), &values)
+        sqlx::query_with(&query, values)
             .execute(&mut self.0.conn.acquire().await?)
             .await?;
 
