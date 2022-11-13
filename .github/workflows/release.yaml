@@ -12,12 +12,12 @@ jobs:
           build: [linux, macos]
           include:
           - build: linux
-            os: ubuntu-20.04
-            rust: nightly
+            os: ubuntu-latest
+            rust: stable
             target: x86_64-unknown-linux-musl
           - build: macos
             os: macos-latest
-            rust: nightly
+            rust: stable
             target: x86_64-apple-darwin
     steps:
       - name: Checkout repository
