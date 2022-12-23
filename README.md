@@ -6,6 +6,15 @@ A utility for automatically syncing transactions from [Plaid API][Plaid].
 * Integration with [Plaid Link][Plaid Link]
 * Keeps local data consistent with Plaid data as transactions are modified
 
+## 2022-12 Disclaimer
+This year Plaid stopped supporting legacy sign in options for several common
+institutions (maybe all?) on the development environment. As a result, integrations
+require full OAuth permissions in Plaid requiring additional authorization and approvals
+from both Plaid and various financial institutions.
+
+As an individual, this tool may be far less useful depending on the instirutions
+you are interested in.
+
 ## Motivation
 Having a consistent and accurate source of transaction data makes tasks like
 budgeting, accounting, and taxes easier. I use this transaction stream to
